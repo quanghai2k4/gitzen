@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"gitzen/internal/git"
 	"gitzen/internal/tui"
@@ -760,12 +761,12 @@ func (m model) renderConfirmModal() string {
 }
 
 func (m model) overlayModalCentered(base, modal string) string {
-	// Calculate position to center modal
+	// Calculate modal dimensions
 	modalLines := strings.Split(modal, "\n")
 	modalH := len(modalLines)
 	modalW := 0
 	for _, line := range modalLines {
-		if w := lipgloss.Width(line); w > modalW {
+		if w := ansi.StringWidth(line); w > modalW {
 			modalW = w
 		}
 	}
@@ -773,7 +774,7 @@ func (m model) overlayModalCentered(base, modal string) string {
 	// Base dimensions
 	baseLines := strings.Split(base, "\n")
 
-	// Calculate starting position
+	// Calculate starting position (centered)
 	startY := (len(baseLines) - modalH) / 2
 	startX := (m.width - modalW) / 2
 
@@ -784,28 +785,42 @@ func (m model) overlayModalCentered(base, modal string) string {
 		startX = 0
 	}
 
-	// Overlay modal onto base
+	// Overlay modal onto base using ANSI-aware truncation
 	for i, modalLine := range modalLines {
 		targetY := startY + i
 		if targetY < len(baseLines) {
 			baseLine := baseLines[targetY]
-			// Insert modal line at startX
-			baseRunes := []rune(baseLine)
-			modalRunes := []rune(modalLine)
 
-			// Pad base if needed
-			for len(baseRunes) < startX+len(modalRunes) {
-				baseRunes = append(baseRunes, ' ')
-			}
+			// Get visual widths
+			baseWidth := ansi.StringWidth(baseLine)
+			modalWidth := ansi.StringWidth(modalLine)
 
-			// Replace characters
-			for j, r := range modalRunes {
-				if startX+j < len(baseRunes) {
-					baseRunes[startX+j] = r
+			// Build the new line:
+			// [left part of base] + [modal] + [right part of base]
+			var newLine string
+
+			// Left part: truncate base to startX width
+			if startX > 0 {
+				if baseWidth >= startX {
+					newLine = ansi.Truncate(baseLine, startX, "")
+				} else {
+					// Pad with spaces if base is shorter than startX
+					newLine = baseLine + strings.Repeat(" ", startX-baseWidth)
 				}
 			}
 
-			baseLines[targetY] = string(baseRunes)
+			// Add modal content
+			newLine += modalLine
+
+			// Right part: cut from base after modal ends
+			endX := startX + modalWidth
+			if baseWidth > endX {
+				// ansi.Cut(s, left, right) returns substring from left to right
+				rightPart := ansi.Cut(baseLine, endX, baseWidth)
+				newLine += rightPart
+			}
+
+			baseLines[targetY] = newLine
 		}
 	}
 
