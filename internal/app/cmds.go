@@ -181,3 +181,179 @@ func loadBranchDiffCmd(r git.Runner, branch string) tea.Cmd {
 		return diffLoadedMsg{Diff: out}
 	}
 }
+
+// ========== HIGH PRIORITY COMMANDS ==========
+
+// Discard changes in a file
+func discardFileCmd(r git.Runner, path string, isUntracked bool) tea.Cmd {
+	return func() tea.Msg {
+		var err error
+		if isUntracked {
+			err = r.DiscardUntracked(path)
+		} else {
+			err = r.DiscardFile(path)
+		}
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("discarded " + path)
+	}
+}
+
+// Pull from remote
+func pullCmd(r git.Runner) tea.Cmd {
+	return func() tea.Msg {
+		out, err := r.Pull()
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		if strings.Contains(out, "Already up to date") {
+			return statusToastMsg("Already up to date")
+		}
+		return statusToastMsg("Pulled successfully")
+	}
+}
+
+// Push to remote
+func pushCmd(r git.Runner) tea.Cmd {
+	return func() tea.Msg {
+		// Check if upstream exists
+		if !r.HasUpstream() {
+			// Get current branch and remote
+			branch, err := r.CurrentBranch()
+			if err != nil {
+				return errMsg(err.Error())
+			}
+			branch = strings.TrimSpace(branch)
+			remote, err := r.GetRemote()
+			if err != nil {
+				return errMsg("No remote configured")
+			}
+			_, err = r.PushSetUpstream(remote, branch)
+			if err != nil {
+				return errMsg(err.Error())
+			}
+			return statusToastMsg("Pushed (set upstream " + remote + "/" + branch + ")")
+		}
+		_, err := r.Push()
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Pushed successfully")
+	}
+}
+
+// Checkout branch
+func checkoutBranchCmd(r git.Runner, branch string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := r.CheckoutBranch(branch)
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Switched to " + branch)
+	}
+}
+
+// Create new branch
+func createBranchCmd(r git.Runner, name string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := r.CreateBranch(name)
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Created branch " + name)
+	}
+}
+
+// ========== MEDIUM PRIORITY COMMANDS ==========
+
+// Fetch from remote
+func fetchCmd(r git.Runner) tea.Cmd {
+	return func() tea.Msg {
+		_, err := r.Fetch()
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Fetched all remotes")
+	}
+}
+
+// Delete branch
+func deleteBranchCmd(r git.Runner, name string, force bool) tea.Cmd {
+	return func() tea.Msg {
+		var err error
+		if force {
+			err = r.DeleteBranchForce(name)
+		} else {
+			err = r.DeleteBranch(name)
+		}
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Deleted branch " + name)
+	}
+}
+
+// Stash apply
+func stashApplyCmd(r git.Runner, ref string) tea.Cmd {
+	return func() tea.Msg {
+		if err := r.StashApply(ref); err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Applied " + ref)
+	}
+}
+
+// Stash pop
+func stashPopCmd(r git.Runner, ref string) tea.Cmd {
+	return func() tea.Msg {
+		if err := r.StashPop(ref); err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Popped " + ref)
+	}
+}
+
+// Stash drop
+func stashDropCmd(r git.Runner, ref string) tea.Cmd {
+	return func() tea.Msg {
+		if err := r.StashDrop(ref); err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Dropped " + ref)
+	}
+}
+
+// Amend commit
+func commitAmendCmd(r git.Runner, message string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := r.CommitAmend(message)
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		if message == "" {
+			return statusToastMsg("Amended commit (kept message)")
+		}
+		return statusToastMsg("Amended commit")
+	}
+}
+
+// Reset soft (undo commit, keep staged)
+func resetSoftCmd(r git.Runner, n int) tea.Cmd {
+	return func() tea.Msg {
+		if err := r.ResetSoftHead(n); err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Reset soft HEAD~" + string(rune('0'+n)))
+	}
+}
+
+// Reset mixed (undo commit, keep unstaged)
+func resetMixedCmd(r git.Runner, n int) tea.Cmd {
+	return func() tea.Msg {
+		if err := r.ResetMixedHead(n); err != nil {
+			return errMsg(err.Error())
+		}
+		return statusToastMsg("Reset mixed HEAD~" + string(rune('0'+n)))
+	}
+}

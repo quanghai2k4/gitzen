@@ -121,7 +121,18 @@ type model struct {
 
 	// Commit modal
 	commitMode bool
+	amendMode  bool
 	commitIn   textinput.Model
+
+	// Create branch modal
+	createBranchMode bool
+	branchIn         textinput.Model
+
+	// Confirm dialog
+	confirmMode    bool
+	confirmTitle   string
+	confirmAction  func() tea.Cmd
+	confirmYesText string
 
 	diffStyler tui.DiffStyler
 }
@@ -146,6 +157,11 @@ func NewModel(repoRoot string) tea.Model {
 	m.commitIn.Placeholder = "Commit message"
 	m.commitIn.CharLimit = 200
 	m.commitIn.Prompt = "> "
+
+	m.branchIn = textinput.New()
+	m.branchIn.Placeholder = "Branch name"
+	m.branchIn.CharLimit = 100
+	m.branchIn.Prompt = "> "
 
 	return m
 }
@@ -212,11 +228,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case statusToastMsg:
 		m.statusMsg = string(msg)
-		return m, tea.Batch(loadStatusCmd(m.git), loadCommitsCmd(m.git))
+		// Reload all data after any git operation
+		return m, tea.Batch(
+			loadStatusCmd(m.git),
+			loadCommitsCmd(m.git),
+			loadBranchCmd(m.git),
+			loadBranchesCmd(m.git),
+			loadStashCmd(m.git),
+		)
 	}
 
 	if m.commitMode {
 		return m.updateCommitMode(msg)
+	}
+
+	if m.createBranchMode {
+		return m.updateCreateBranchMode(msg)
+	}
+
+	if m.confirmMode {
+		return m.updateConfirmMode(msg)
 	}
 
 	if key, ok := msg.(tea.KeyMsg); ok {
@@ -261,6 +292,12 @@ func (m model) View() string {
 	}
 	if m.commitMode {
 		out = m.overlayModalCentered(out, m.renderCommitModal())
+	}
+	if m.createBranchMode {
+		out = m.overlayModalCentered(out, m.renderCreateBranchModal())
+	}
+	if m.confirmMode {
+		out = m.overlayModalCentered(out, m.renderConfirmModal())
 	}
 
 	return out
@@ -636,17 +673,17 @@ func (m model) renderInfoBar() string {
 	var opts string
 	switch m.focus {
 	case paneFiles:
-		opts = "space: toggle staged | a: stage all | c: commit | d: discard"
+		opts = "space: stage | a: all | c: commit | A: amend | d: discard"
 	case paneBranches:
-		opts = "space: checkout | n: new branch | d: delete"
+		opts = "space: checkout | n: new | d: delete | D: force delete"
 	case paneCommits:
-		opts = "enter: view | c: cherry-pick | r: revert"
+		opts = "enter: view | r: undo (staged) | R: undo (unstaged)"
 	case paneStash:
-		opts = "space: apply | g: pop | d: drop"
+		opts = "space: apply | p: pop | d: drop"
 	case paneMain:
-		opts = "↑↓: scroll | d/u: page | /: search"
+		opts = "j/k: scroll | d/u: page | g/G: top/bottom"
 	default:
-		opts = "tab: switch panels | q: quit"
+		opts = "tab: switch | p: pull | P: push | f: fetch | q: quit"
 	}
 
 	left := optStyle.Render(opts)
@@ -688,13 +725,38 @@ func (m model) renderErrorModal() string {
 }
 
 func (m model) renderCommitModal() string {
+	title := "Commit Message"
+	if m.amendMode {
+		title = "Amend Commit (empty = keep old message)"
+	}
+
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(activeBorderColor).
 		Padding(1, 2).
 		Width(60)
 
-	return box.Render("Commit Message\n\n" + m.commitIn.View() + "\n\n[ENTER] confirm  [ESC] cancel")
+	return box.Render(title + "\n\n" + m.commitIn.View() + "\n\n[ENTER] confirm  [ESC] cancel")
+}
+
+func (m model) renderCreateBranchModal() string {
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(activeBorderColor).
+		Padding(1, 2).
+		Width(50)
+
+	return box.Render("New Branch\n\n" + m.branchIn.View() + "\n\n[ENTER] create  [ESC] cancel")
+}
+
+func (m model) renderConfirmModal() string {
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("3")). // Yellow for warning
+		Padding(1, 2).
+		Width(50)
+
+	return box.Render(m.confirmTitle + "\n\n[y] yes  [n/ESC] no")
 }
 
 func (m model) overlayModalCentered(base, modal string) string {

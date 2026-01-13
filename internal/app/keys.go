@@ -32,14 +32,33 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.loadDiffForCurrentPane()
 	case "esc":
 		m.errorMsg = ""
+		m.confirmMode = false
 		return m, nil
 	case "c":
 		if m.focus == paneFiles {
 			m.commitMode = true
+			m.amendMode = false
 			m.commitIn.SetValue("")
 			m.commitIn.Focus()
 		}
 		return m, nil
+	case "A": // Amend commit
+		if m.focus == paneFiles && len(m.stagedItems) > 0 {
+			m.commitMode = true
+			m.amendMode = true
+			m.commitIn.SetValue("")
+			m.commitIn.Placeholder = "New message (empty = keep old)"
+			m.commitIn.Focus()
+		}
+		return m, nil
+
+	// Global git operations
+	case "p": // Pull
+		return m, pullCmd(m.git)
+	case "P": // Push
+		return m, pushCmd(m.git)
+	case "f": // Fetch
+		return m, fetchCmd(m.git)
 
 	// Jump keys (like lazygit: 1-5 for side panels, 0 for main)
 	case "1":
@@ -120,6 +139,8 @@ func (m model) handleFilesKeys(key string) (tea.Model, tea.Cmd) {
 	case "a":
 		// Stage all
 		return m, stageAllCmd(m)
+	case "d": // Discard changes
+		return m.discardSelectedFile()
 	}
 	return m, nil
 }
@@ -148,8 +169,49 @@ func (m model) handleBranchesKeys(key string) (tea.Model, tea.Cmd) {
 			m.refreshAllViews()
 			return m, m.loadBranchDiff()
 		}
-	case "enter":
-		return m, m.loadBranchDiff()
+	case "enter", " ": // Checkout branch
+		if m.branchesCursor < len(m.branches) {
+			branch := m.branches[m.branchesCursor]
+			if branch.IsCurrent {
+				return m, nil // Already on this branch
+			}
+			return m, checkoutBranchCmd(m.git, branch.Name)
+		}
+	case "n": // New branch
+		m.createBranchMode = true
+		m.branchIn.SetValue("")
+		m.branchIn.Focus()
+		return m, nil
+	case "d": // Delete branch
+		if m.branchesCursor < len(m.branches) {
+			branch := m.branches[m.branchesCursor]
+			if branch.IsCurrent {
+				m.errorMsg = "Cannot delete current branch"
+				return m, nil
+			}
+			m.confirmMode = true
+			m.confirmTitle = "Delete branch " + branch.Name + "?"
+			m.confirmYesText = "y"
+			m.confirmAction = func() tea.Cmd {
+				return deleteBranchCmd(m.git, branch.Name, false)
+			}
+			return m, nil
+		}
+	case "D": // Force delete branch
+		if m.branchesCursor < len(m.branches) {
+			branch := m.branches[m.branchesCursor]
+			if branch.IsCurrent {
+				m.errorMsg = "Cannot delete current branch"
+				return m, nil
+			}
+			m.confirmMode = true
+			m.confirmTitle = "Force delete branch " + branch.Name + "?"
+			m.confirmYesText = "y"
+			m.confirmAction = func() tea.Cmd {
+				return deleteBranchCmd(m.git, branch.Name, true)
+			}
+			return m, nil
+		}
 	}
 	return m, nil
 }
@@ -180,6 +242,26 @@ func (m model) handleCommitsKeys(key string) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		return m, m.loadCommitDiff()
+	case "r": // Reset soft (undo commit, keep staged)
+		if m.commitsCursor == 0 && len(m.commitItems) > 0 {
+			m.confirmMode = true
+			m.confirmTitle = "Undo last commit (keep staged)?"
+			m.confirmYesText = "y"
+			m.confirmAction = func() tea.Cmd {
+				return resetSoftCmd(m.git, 1)
+			}
+			return m, nil
+		}
+	case "R": // Reset mixed (undo commit, keep unstaged)
+		if m.commitsCursor == 0 && len(m.commitItems) > 0 {
+			m.confirmMode = true
+			m.confirmTitle = "Undo last commit (keep unstaged)?"
+			m.confirmYesText = "y"
+			m.confirmAction = func() tea.Cmd {
+				return resetMixedCmd(m.git, 1)
+			}
+			return m, nil
+		}
 	}
 	return m, nil
 }
@@ -210,6 +292,27 @@ func (m model) handleStashKeys(key string) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		return m, m.loadStashDiffForCursor()
+	case " ": // Stash apply
+		if m.stashCursor < len(m.stashItems) {
+			ref := m.stashItems[m.stashCursor].Ref
+			return m, stashApplyCmd(m.git, ref)
+		}
+	case "p": // Stash pop (like lazygit uses 'g' for pop)
+		if m.stashCursor < len(m.stashItems) {
+			ref := m.stashItems[m.stashCursor].Ref
+			return m, stashPopCmd(m.git, ref)
+		}
+	case "d": // Stash drop (with confirm)
+		if m.stashCursor < len(m.stashItems) {
+			ref := m.stashItems[m.stashCursor].Ref
+			m.confirmMode = true
+			m.confirmTitle = "Drop " + ref + "?"
+			m.confirmYesText = "y"
+			m.confirmAction = func() tea.Cmd {
+				return stashDropCmd(m.git, ref)
+			}
+			return m, nil
+		}
 	}
 	return m, nil
 }
@@ -237,23 +340,80 @@ func (m model) updateCommitMode(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key.String() {
 		case "esc":
 			m.commitMode = false
+			m.amendMode = false
 			m.commitIn.Blur()
+			m.commitIn.Placeholder = "Commit message"
 			return m, nil
 		case "enter":
-			msg := strings.TrimSpace(m.commitIn.Value())
-			if msg == "" {
+			msgVal := strings.TrimSpace(m.commitIn.Value())
+
+			if m.amendMode {
+				// Amend mode: empty message = keep old message
+				m.commitMode = false
+				m.amendMode = false
+				m.commitIn.Blur()
+				m.commitIn.Placeholder = "Commit message"
+				return m, commitAmendCmd(m.git, msgVal)
+			}
+
+			// Normal commit mode
+			if msgVal == "" {
 				m.errorMsg = "Commit message is empty"
 				return m, nil
 			}
 			m.commitMode = false
 			m.commitIn.Blur()
-			return m, commitCmd(m.git, msg)
+			return m, commitCmd(m.git, msgVal)
 		}
 	}
 
 	var cmd tea.Cmd
 	m.commitIn, cmd = m.commitIn.Update(msg)
 	return m, cmd
+}
+
+func (m model) updateCreateBranchMode(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
+		case "esc":
+			m.createBranchMode = false
+			m.branchIn.Blur()
+			return m, nil
+		case "enter":
+			name := strings.TrimSpace(m.branchIn.Value())
+			if name == "" {
+				m.errorMsg = "Branch name is empty"
+				return m, nil
+			}
+			m.createBranchMode = false
+			m.branchIn.Blur()
+			return m, createBranchCmd(m.git, name)
+		}
+	}
+
+	var cmd tea.Cmd
+	m.branchIn, cmd = m.branchIn.Update(msg)
+	return m, cmd
+}
+
+func (m model) updateConfirmMode(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
+		case "esc", "n", "N":
+			m.confirmMode = false
+			m.confirmAction = nil
+			return m, nil
+		case "y", "Y", "enter":
+			m.confirmMode = false
+			action := m.confirmAction
+			m.confirmAction = nil
+			if action != nil {
+				return m, action()
+			}
+			return m, nil
+		}
+	}
+	return m, nil
 }
 
 // Helper methods for loading diff based on current selection
@@ -327,4 +487,46 @@ func (m model) loadStashDiffForCursor() tea.Cmd {
 		return loadStashDiffCmd(m.git, ref)
 	}
 	return nil
+}
+
+// discardSelectedFile handles discarding changes for the selected file
+func (m model) discardSelectedFile() (tea.Model, tea.Cmd) {
+	// Can only discard unstaged files
+	if m.filesCursor < len(m.stagedItems) {
+		// File is staged, need to unstage first
+		m.errorMsg = "Cannot discard staged file. Unstage first (space)"
+		return m, nil
+	}
+
+	unstagedIdx := m.filesCursor - len(m.stagedItems)
+	if unstagedIdx >= len(m.unstagedItems) {
+		return m, nil
+	}
+
+	file := m.unstagedItems[unstagedIdx]
+	isUntracked := file.Status == "?"
+
+	// Setup confirm dialog
+	m.confirmMode = true
+	m.confirmTitle = "Discard changes to " + file.Path + "?"
+	m.confirmYesText = "y"
+	m.confirmAction = func() tea.Cmd {
+		return discardFileCmd(m.git, file.Path, isUntracked)
+	}
+
+	return m, nil
+}
+
+// selectedFileInfo returns path, isStaged, isUntracked for selected file
+func (m model) selectedFileInfo() (path string, staged bool, untracked bool) {
+	if m.filesCursor < len(m.stagedItems) {
+		f := m.stagedItems[m.filesCursor]
+		return f.Path, true, false
+	}
+	unstagedIdx := m.filesCursor - len(m.stagedItems)
+	if unstagedIdx < len(m.unstagedItems) {
+		f := m.unstagedItems[unstagedIdx]
+		return f.Path, false, f.Status == "?"
+	}
+	return "", false, false
 }
