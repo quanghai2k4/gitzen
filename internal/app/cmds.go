@@ -26,6 +26,9 @@ type errMsg string
 
 type statusToastMsg string
 
+// cmdLogMsg is used to add entries to the command log pane
+type cmdLogMsg string
+
 func loadStatusCmd(r git.Runner) tea.Cmd {
 	return func() tea.Msg {
 		b, err := r.StatusPorcelainZ()

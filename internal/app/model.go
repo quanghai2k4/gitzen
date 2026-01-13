@@ -14,7 +14,7 @@ import (
 	"gitzen/internal/tui"
 )
 
-// Pane IDs - matching lazygit exactly: Status, Files, Branches, Commits, Stash
+// Pane IDs - matching lazygit: Status, Files, Branches, Commits, Stash (sidebar) + Main, CmdLog (right)
 type pane int
 
 const (
@@ -23,7 +23,8 @@ const (
 	paneBranches
 	paneCommits
 	paneStash
-	paneMain // Diff view (right panel)
+	paneMain   // Diff view (right panel, top)
+	paneCmdLog // Command log (right panel, bottom) - shows executed git commands
 )
 
 // Colors matching lazygit default theme
@@ -85,6 +86,7 @@ type model struct {
 	commitsVP  viewport.Model
 	stashVP    viewport.Model
 	mainVP     viewport.Model
+	cmdLogVP   viewport.Model
 
 	// Data
 	unstagedItems []git.FileItem
@@ -93,6 +95,7 @@ type model struct {
 	branchName    string
 	branches      []git.Branch
 	stashItems    []git.StashEntry
+	cmdLogEntries []string // Executed git commands history
 
 	// Cursors
 	filesCursor    int
@@ -113,6 +116,7 @@ type model struct {
 	commitsH  int
 	stashH    int
 	mainH     int
+	cmdLogH   int
 	infoBarH  int
 
 	// Messages
@@ -153,6 +157,8 @@ func NewModel(repoRoot string) tea.Model {
 	m.commitsVP = viewport.New(0, 0)
 	m.stashVP = viewport.New(0, 0)
 	m.mainVP = viewport.New(0, 0)
+	m.cmdLogVP = viewport.New(0, 0)
+	m.cmdLogH = 5 // Fixed height for command log
 
 	m.commitIn = textinput.New()
 	m.commitIn.Placeholder = "Commit message"
@@ -217,6 +223,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.refreshAllViews()
 		return m, nil
+	case cmdLogMsg:
+		m.cmdLogEntries = append(m.cmdLogEntries, string(msg))
+		// Keep only last 100 entries
+		if len(m.cmdLogEntries) > 100 {
+			m.cmdLogEntries = m.cmdLogEntries[1:]
+		}
+		m.cmdLogVP.SetContent(m.renderCmdLogContent())
+		m.cmdLogVP.GotoBottom()
+		return m, nil
 	case diffLoadedMsg:
 		m.mainVP.SetContent(m.diffStyler.Colorize(msg.Diff))
 		m.mainVP.GotoTop()
@@ -229,6 +244,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case statusToastMsg:
 		m.statusMsg = string(msg)
+		// Log the operation to command log
+		m.cmdLogEntries = append(m.cmdLogEntries, string(msg))
+		if len(m.cmdLogEntries) > 100 {
+			m.cmdLogEntries = m.cmdLogEntries[1:]
+		}
+		m.cmdLogVP.SetContent(m.renderCmdLogContent())
+		m.cmdLogVP.GotoBottom()
 		// Reload all data after any git operation
 		return m, tea.Batch(
 			loadStatusCmd(m.git),
@@ -276,11 +298,13 @@ func (m model) View() string {
 
 	sidebar := lipgloss.JoinVertical(lipgloss.Left, statusBox, filesBox, branchesBox, commitsBox, stashBox)
 
-	// === Main panel (right) ===
+	// === Right side: Main (top) + Command Log (bottom) ===
 	mainBox := m.renderPane("Main", m.mainVP.View(), paneMain, m.mainW, m.mainH)
+	cmdLogBox := m.renderPane("Command Log", m.cmdLogVP.View(), paneCmdLog, m.mainW, m.cmdLogH)
+	rightSide := lipgloss.JoinVertical(lipgloss.Left, mainBox, cmdLogBox)
 
-	// Join sidebar and main
-	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, mainBox)
+	// Join sidebar and right side
+	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightSide)
 
 	// === Info bar (bottom) ===
 	infoBar := m.renderInfoBar()
@@ -317,7 +341,15 @@ func (m *model) resize() {
 		m.sidebarW = 60
 	}
 	m.mainW = m.width - m.sidebarW
-	m.mainH = totalH
+
+	// Right side: Main + CmdLog
+	// CmdLog height matches stash pane (stashPaneMinHeight)
+	if m.focus == paneCmdLog {
+		m.cmdLogH = 10 // Expand when focused
+	} else {
+		m.cmdLogH = stashPaneMinHeight // Same as stash pane
+	}
+	m.mainH = totalH - m.cmdLogH
 
 	// Sidebar vertical layout like lazygit:
 	// Status: fixed 3
@@ -325,7 +357,7 @@ func (m *model) resize() {
 	// Stash: fixed 3 (unless focused)
 	m.statusH = statusPaneFixedHeight
 
-	// Stash height
+	// Stash height (fixed unless focused)
 	if m.focus == paneStash {
 		m.stashH = 0 // Will be calculated with weight
 	} else {
@@ -365,11 +397,11 @@ func (m *model) resize() {
 	m.commitsH = unitH * weights[idx]
 	idx++
 
-	if m.focus == paneStash {
-		m.stashH = remainH - m.filesH - m.branchesH - m.commitsH
+	if m.focus == paneStash && idx < len(weights) {
+		m.stashH = unitH * weights[idx]
 	}
 
-	// Adjust last pane to fill remaining space
+	// Adjust last flexible pane to fill remaining space
 	usedH := m.statusH + m.filesH + m.branchesH + m.commitsH + m.stashH
 	if usedH < totalH {
 		m.commitsH += totalH - usedH
@@ -388,6 +420,8 @@ func (m *model) resize() {
 	m.stashVP.Height = max(1, m.stashH-2)
 	m.mainVP.Width = m.mainW - 2
 	m.mainVP.Height = max(1, m.mainH-2)
+	m.cmdLogVP.Width = m.mainW - 2
+	m.cmdLogVP.Height = max(1, m.cmdLogH-2)
 }
 
 func (m *model) refreshAllViews() {
@@ -395,6 +429,7 @@ func (m *model) refreshAllViews() {
 	m.branchesVP.SetContent(m.renderBranchesContent())
 	m.commitsVP.SetContent(m.renderCommitsContent())
 	m.stashVP.SetContent(m.renderStashContent())
+	m.cmdLogVP.SetContent(m.renderCmdLogContent())
 }
 
 // renderPane renders a pane with title in border exactly like lazygit
@@ -663,6 +698,20 @@ func (m model) renderStashContent() string {
 	return strings.Join(lines, "\n")
 }
 
+func (m model) renderCmdLogContent() string {
+	if len(m.cmdLogEntries) == 0 {
+		return lipgloss.NewStyle().Foreground(dimColor).Render("(no commands executed)")
+	}
+
+	var lines []string
+	cmdStyle := lipgloss.NewStyle().Foreground(colorBranchLocal)
+	for _, cmd := range m.cmdLogEntries {
+		lines = append(lines, cmdStyle.Render(cmd))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func (m model) renderInfoBar() string {
 	// Left: context-sensitive keybindings (blue)
 	// Right: info/version (green)
@@ -681,6 +730,8 @@ func (m model) renderInfoBar() string {
 		opts = "enter: view | r: undo (staged) | R: undo (unstaged)"
 	case paneStash:
 		opts = "space: apply | p: pop | d: drop"
+	case paneCmdLog:
+		opts = "j/k: scroll | g/G: top/bottom"
 	case paneMain:
 		opts = "j/k: scroll | d/u: page | g/G: top/bottom"
 	default:

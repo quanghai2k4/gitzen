@@ -14,8 +14,8 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "tab":
-		// Cycle through: Files -> Branches -> Commits -> Stash -> Main -> Files
-		m.focus = (m.focus + 1) % 6
+		// Cycle through: Files -> Branches -> Commits -> Stash -> Main -> CmdLog -> Files
+		m.focus = (m.focus + 1) % 7
 		if m.focus == paneStatus {
 			m.focus = paneFiles // skip status pane
 		}
@@ -23,9 +23,9 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.refreshAllViews()
 		return m, m.loadDiffForCurrentPane()
 	case "shift+tab":
-		m.focus = (m.focus + 5) % 6
+		m.focus = (m.focus + 6) % 7
 		if m.focus == paneStatus {
-			m.focus = paneMain
+			m.focus = paneCmdLog
 		}
 		m.resize()
 		m.refreshAllViews()
@@ -83,6 +83,11 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.focus = paneStash
 		m.resize()
 		m.refreshAllViews()
+		return m, m.loadDiffForCurrentPane()
+	case "6":
+		m.focus = paneCmdLog
+		m.resize()
+		m.refreshAllViews()
 		return m, nil
 	case "0":
 		m.focus = paneMain
@@ -101,6 +106,8 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCommitsKeys(key)
 	case paneStash:
 		return m.handleStashKeys(key)
+	case paneCmdLog:
+		return m.handleCmdLogKeys(key)
 	case paneMain:
 		return m.handleMainKeys(key)
 	}
@@ -313,6 +320,20 @@ func (m model) handleStashKeys(key string) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+	}
+	return m, nil
+}
+
+func (m model) handleCmdLogKeys(key string) (tea.Model, tea.Cmd) {
+	switch key {
+	case "j", "down":
+		m.cmdLogVP.LineDown(1)
+	case "k", "up":
+		m.cmdLogVP.LineUp(1)
+	case "g":
+		m.cmdLogVP.GotoTop()
+	case "G":
+		m.cmdLogVP.GotoBottom()
 	}
 	return m, nil
 }
