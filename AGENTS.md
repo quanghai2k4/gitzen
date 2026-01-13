@@ -1,6 +1,17 @@
 # Agent Instructions for GitZen
-
 GitZen is a TUI Git client (lazygit-inspired) written in Go using the Bubble Tea framework.
+
+## Language & Communication
+- **Ngôn ngữ:** BẮT BUỘC trả lời và giải thích toàn bộ bằng **Tiếng Việt**.
+- **Phong cách:** Ngắn gọn, đi thẳng vào vấn đề kỹ thuật.
+
+## Coding Rules
+- **No Documentation:** KHÔNG tự động tạo hoặc cập nhật các file tài liệu (như `README.md`, `DOCS.md`, `*.txt`) trong quá trình code. Chỉ viết docs khi user yêu cầu rõ ràng.
+- **No Unsolicited Tests:** KHÔNG tự động viết script kiểm thử (unit test, test cases) trừ khi được yêu cầu cụ thể. Tập trung hoàn toàn vào implementation code.
+
+## Workflow
+- Chỉ tập trung vào việc tạo ra source code chạy được (functional code).
+- Nếu sửa code, hãy áp dụng trực tiếp vào file source, không tạo file backup hay file tạm.
 
 ## Build Commands
 
