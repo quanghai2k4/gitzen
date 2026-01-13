@@ -106,9 +106,9 @@ func unstageFileCmd(r git.Runner, path string) tea.Cmd {
 	}
 }
 
-func stageAllCmd(m model) tea.Cmd {
+func stageAllCmd(r git.Runner) tea.Cmd {
 	return func() tea.Msg {
-		if err := m.git.Add("."); err != nil {
+		if err := r.Add("."); err != nil {
 			return errMsg(err.Error())
 		}
 		return statusToastMsg("staged all")
