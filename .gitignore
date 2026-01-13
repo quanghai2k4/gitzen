@@ -1,0 +1,26 @@
+# Binaries
+/gitzen
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go build cache
+.go/
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.log
