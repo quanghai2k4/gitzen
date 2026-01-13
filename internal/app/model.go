@@ -90,8 +90,8 @@ type model struct {
 	stagedItems   []git.FileItem
 	commitItems   []git.CommitItem
 	branchName    string
-	branches      []string
-	stashItems    []string
+	branches      []git.Branch
+	stashItems    []git.StashEntry
 
 	// Cursors
 	filesCursor    int
@@ -151,7 +151,13 @@ func NewModel(repoRoot string) tea.Model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(loadStatusCmd(m.git), loadCommitsCmd(m.git), loadBranchCmd(m.git))
+	return tea.Batch(
+		loadStatusCmd(m.git),
+		loadCommitsCmd(m.git),
+		loadBranchCmd(m.git),
+		loadBranchesCmd(m.git),
+		loadStashCmd(m.git),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -179,6 +185,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case branchLoadedMsg:
 		m.branchName = msg.Branch
+		return m, nil
+	case branchesLoadedMsg:
+		m.branches = msg.Branches
+		if m.branchesCursor >= len(m.branches) {
+			m.branchesCursor = max(0, len(m.branches)-1)
+		}
+		m.refreshAllViews()
+		return m, nil
+	case stashLoadedMsg:
+		m.stashItems = msg.Entries
+		if m.stashCursor >= len(m.stashItems) {
+			m.stashCursor = max(0, len(m.stashItems)-1)
+		}
+		m.refreshAllViews()
 		return m, nil
 	case diffLoadedMsg:
 		m.mainVP.SetContent(m.diffStyler.Colorize(msg.Diff))
@@ -506,24 +526,52 @@ func (m model) renderFileItem(f git.FileItem, staged bool, selected bool) string
 }
 
 func (m model) renderBranchesContent() string {
-	branch := m.branchName
-	if branch == "" {
-		branch = "master"
+	if len(m.branches) == 0 {
+		// Fall back to just showing current branch
+		branch := m.branchName
+		if branch == "" {
+			branch = "master"
+		}
+		branchStyle := lipgloss.NewStyle().Foreground(colorBranchHead)
+		selected := m.focus == paneBranches && m.branchesCursor == 0
+		line := branchStyle.Render("* " + branch)
+		if selected {
+			line = lipgloss.NewStyle().
+				Background(selectedBgColor).
+				Foreground(selectedFgColor).
+				Render("* " + branch)
+		}
+		return line
 	}
 
-	// Show current branch with asterisk like lazygit
-	branchStyle := lipgloss.NewStyle().Foreground(colorBranchHead)
-	selected := m.focus == paneBranches && m.branchesCursor == 0
+	var lines []string
+	for i, b := range m.branches {
+		selected := m.focus == paneBranches && i == m.branchesCursor
 
-	line := branchStyle.Render("* " + branch)
-	if selected {
-		line = lipgloss.NewStyle().
-			Background(selectedBgColor).
-			Foreground(selectedFgColor).
-			Render("* " + branch)
+		prefix := "  "
+		color := colorBranchLocal
+		if b.IsCurrent {
+			prefix = "* "
+			color = colorBranchHead
+		}
+		if b.IsRemote {
+			color = colorBranchRemote
+		}
+
+		line := prefix + b.Name
+		if selected {
+			line = lipgloss.NewStyle().
+				Background(selectedBgColor).
+				Foreground(selectedFgColor).
+				Render(line)
+		} else {
+			line = lipgloss.NewStyle().Foreground(color).Render(line)
+		}
+
+		lines = append(lines, line)
 	}
 
-	return line
+	return strings.Join(lines, "\n")
 }
 
 func (m model) renderCommitsContent() string {
@@ -561,14 +609,16 @@ func (m model) renderStashContent() string {
 
 	var lines []string
 	for i, s := range m.stashItems {
+		// Format: stash@{0}: message
+		display := s.Ref + ": " + s.Message
 		selected := m.focus == paneStash && i == m.stashCursor
 		if selected {
 			lines = append(lines, lipgloss.NewStyle().
 				Background(selectedBgColor).
 				Foreground(selectedFgColor).
-				Render(s))
+				Render(display))
 		} else {
-			lines = append(lines, s)
+			lines = append(lines, display)
 		}
 	}
 

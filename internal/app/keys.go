@@ -130,20 +130,26 @@ func (m model) handleBranchesKeys(key string) (tea.Model, tea.Cmd) {
 		if m.branchesCursor < len(m.branches)-1 {
 			m.branchesCursor++
 			m.refreshAllViews()
+			return m, m.loadBranchDiff()
 		}
 	case "k", "up":
 		if m.branchesCursor > 0 {
 			m.branchesCursor--
 			m.refreshAllViews()
+			return m, m.loadBranchDiff()
 		}
 	case "g":
 		m.branchesCursor = 0
 		m.refreshAllViews()
+		return m, m.loadBranchDiff()
 	case "G":
 		if len(m.branches) > 0 {
 			m.branchesCursor = len(m.branches) - 1
 			m.refreshAllViews()
+			return m, m.loadBranchDiff()
 		}
+	case "enter":
+		return m, m.loadBranchDiff()
 	}
 	return m, nil
 }
@@ -184,20 +190,26 @@ func (m model) handleStashKeys(key string) (tea.Model, tea.Cmd) {
 		if m.stashCursor < len(m.stashItems)-1 {
 			m.stashCursor++
 			m.refreshAllViews()
+			return m, m.loadStashDiffForCursor()
 		}
 	case "k", "up":
 		if m.stashCursor > 0 {
 			m.stashCursor--
 			m.refreshAllViews()
+			return m, m.loadStashDiffForCursor()
 		}
 	case "g":
 		m.stashCursor = 0
 		m.refreshAllViews()
+		return m, m.loadStashDiffForCursor()
 	case "G":
 		if len(m.stashItems) > 0 {
 			m.stashCursor = len(m.stashItems) - 1
 			m.refreshAllViews()
+			return m, m.loadStashDiffForCursor()
 		}
+	case "enter":
+		return m, m.loadStashDiffForCursor()
 	}
 	return m, nil
 }
@@ -256,6 +268,10 @@ func (m model) loadDiffForCurrentPane() tea.Cmd {
 		return loadDiffCmd(m.git, path, staged)
 	case paneCommits:
 		return m.loadCommitDiff()
+	case paneBranches:
+		return m.loadBranchDiff()
+	case paneStash:
+		return m.loadStashDiffForCursor()
 	default:
 		return nil
 	}
@@ -293,6 +309,22 @@ func (m model) toggleStageCmd() tea.Cmd {
 	if unstagedIdx < len(m.unstagedItems) {
 		path := m.unstagedItems[unstagedIdx].Path
 		return stageFileCmd(m.git, path)
+	}
+	return nil
+}
+
+func (m model) loadBranchDiff() tea.Cmd {
+	if m.branchesCursor < len(m.branches) {
+		branch := m.branches[m.branchesCursor].Name
+		return loadBranchDiffCmd(m.git, branch)
+	}
+	return nil
+}
+
+func (m model) loadStashDiffForCursor() tea.Cmd {
+	if m.stashCursor < len(m.stashItems) {
+		ref := m.stashItems[m.stashCursor].Ref
+		return loadStashDiffCmd(m.git, ref)
 	}
 	return nil
 }

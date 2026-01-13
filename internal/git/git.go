@@ -87,6 +87,85 @@ func (r Runner) CurrentBranch() (string, error) {
 	return r.run(DefaultCmdTimeout, "rev-parse", "--abbrev-ref", "HEAD")
 }
 
+// Branch represents a git branch
+type Branch struct {
+	Name      string
+	IsCurrent bool
+	IsRemote  bool
+}
+
+// ListBranches returns all local branches
+func (r Runner) ListBranches() ([]Branch, error) {
+	out, err := r.run(DefaultCmdTimeout, "branch", "--format=%(HEAD)%(refname:short)")
+	if err != nil {
+		return nil, err
+	}
+	var branches []Branch
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		isCurrent := false
+		name := line
+		if len(line) > 0 && line[0] == '*' {
+			isCurrent = true
+			name = line[1:]
+		}
+		branches = append(branches, Branch{
+			Name:      name,
+			IsCurrent: isCurrent,
+			IsRemote:  false,
+		})
+	}
+	return branches, nil
+}
+
+// StashEntry represents a git stash entry
+type StashEntry struct {
+	Index   int
+	Ref     string // stash@{0}
+	Message string
+}
+
+// ListStash returns all stash entries
+func (r Runner) ListStash() ([]StashEntry, error) {
+	out, err := r.run(DefaultCmdTimeout, "stash", "list")
+	if err != nil {
+		// stash list returns error if no stash, but also might just be empty
+		return nil, nil
+	}
+	var entries []StashEntry
+	for i, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		// Format: stash@{0}: WIP on branch: message
+		// or: stash@{0}: On branch: message
+		parts := strings.SplitN(line, ": ", 2)
+		ref := parts[0]
+		msg := ""
+		if len(parts) > 1 {
+			msg = parts[1]
+		}
+		entries = append(entries, StashEntry{
+			Index:   i,
+			Ref:     ref,
+			Message: msg,
+		})
+	}
+	return entries, nil
+}
+
+// ShowStash shows the diff for a stash entry
+func (r Runner) ShowStash(ref string) (string, error) {
+	return r.run(DefaultDiffTimeout, "stash", "show", "-p", ref)
+}
+
+// DiffBranch shows the diff between current HEAD and a branch
+func (r Runner) DiffBranch(branch string) (string, error) {
+	return r.run(DefaultDiffTimeout, "diff", branch+"...HEAD")
+}
+
 func (r Runner) run(timeout time.Duration, args ...string) (string, error) {
 	out, err := runRaw(r.RepoRoot, timeout, args...)
 	if err != nil {

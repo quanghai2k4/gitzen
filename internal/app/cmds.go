@@ -14,6 +14,10 @@ type commitsLoadedMsg struct{ Commits []git.CommitItem }
 
 type branchLoadedMsg struct{ Branch string }
 
+type branchesLoadedMsg struct{ Branches []git.Branch }
+
+type stashLoadedMsg struct{ Entries []git.StashEntry }
+
 type diffLoadedMsg struct{ Diff string }
 
 type gitCmdMsg string
@@ -125,5 +129,55 @@ func loadBranchCmd(r git.Runner) tea.Cmd {
 			return branchLoadedMsg{Branch: ""}
 		}
 		return branchLoadedMsg{Branch: strings.TrimSpace(out)}
+	}
+}
+
+func loadBranchesCmd(r git.Runner) tea.Cmd {
+	return func() tea.Msg {
+		branches, err := r.ListBranches()
+		if err != nil {
+			return branchesLoadedMsg{Branches: nil}
+		}
+		return branchesLoadedMsg{Branches: branches}
+	}
+}
+
+func loadStashCmd(r git.Runner) tea.Cmd {
+	return func() tea.Msg {
+		entries, err := r.ListStash()
+		if err != nil {
+			return stashLoadedMsg{Entries: nil}
+		}
+		return stashLoadedMsg{Entries: entries}
+	}
+}
+
+func loadStashDiffCmd(r git.Runner, ref string) tea.Cmd {
+	return func() tea.Msg {
+		if strings.TrimSpace(ref) == "" {
+			return diffLoadedMsg{Diff: ""}
+		}
+		out, err := r.ShowStash(ref)
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		return diffLoadedMsg{Diff: out}
+	}
+}
+
+func loadBranchDiffCmd(r git.Runner, branch string) tea.Cmd {
+	return func() tea.Msg {
+		if strings.TrimSpace(branch) == "" {
+			return diffLoadedMsg{Diff: ""}
+		}
+		out, err := r.DiffBranch(branch)
+		if err != nil {
+			// May fail for current branch, show empty
+			return diffLoadedMsg{Diff: "(no diff from current branch)"}
+		}
+		if strings.TrimSpace(out) == "" {
+			out = "(no diff from current branch)"
+		}
+		return diffLoadedMsg{Diff: out}
 	}
 }
