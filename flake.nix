@@ -19,6 +19,7 @@
             gotools
             git
             goreleaser
+            gh
           ];
 
           env = {
