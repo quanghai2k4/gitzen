@@ -13,13 +13,35 @@ type statusLoadedMsg struct{ Status git.Status }
 
 type commitsLoadedMsg struct{ Commits []git.CommitItem }
 
+type reflogLoadedMsg struct{ Entries []git.ReflogEntry }
+
 type branchLoadedMsg struct{ Branch string }
 
 type branchesLoadedMsg struct{ Branches []git.Branch }
 
 type stashLoadedMsg struct{ Entries []git.StashEntry }
 
-type diffLoadedMsg struct{ Diff string }
+type diffLoadedMsg struct {
+	Diff     string
+	Context  int    // DiffContext type
+	Subtitle string // file path, commit hash, etc.
+}
+
+// splitDiffLoadedMsg contains both unstaged and staged diffs for split view
+type splitDiffLoadedMsg struct {
+	Unstaged string
+	Staged   string
+	FilePath string
+}
+
+// Diff context constants (match components.DiffContext)
+const (
+	diffContextNone   = 0
+	diffContextFile   = 1
+	diffContextCommit = 2
+	diffContextStash  = 3
+	diffContextBranch = 4
+)
 
 type gitCmdMsg string
 
@@ -65,10 +87,20 @@ func loadCommitsCmd(r git.Runner) tea.Cmd {
 	}
 }
 
+func loadReflogCmd(r git.Runner) tea.Cmd {
+	return func() tea.Msg {
+		out, err := r.Reflog()
+		if err != nil {
+			return reflogLoadedMsg{Entries: nil}
+		}
+		return reflogLoadedMsg{Entries: git.ParseReflog(out)}
+	}
+}
+
 func loadDiffCmd(r git.Runner, path string, staged bool) tea.Cmd {
 	return func() tea.Msg {
 		if strings.TrimSpace(path) == "" {
-			return diffLoadedMsg{Diff: ""}
+			return diffLoadedMsg{Diff: "", Context: diffContextNone}
 		}
 		out, err := r.DiffFile(path, staged)
 		if err != nil {
@@ -77,20 +109,41 @@ func loadDiffCmd(r git.Runner, path string, staged bool) tea.Cmd {
 		if strings.TrimSpace(out) == "" {
 			out = "(no diff)"
 		}
-		return diffLoadedMsg{Diff: out}
+		return diffLoadedMsg{Diff: out, Context: diffContextFile, Subtitle: path}
 	}
 }
 
 func loadShowCommitCmd(r git.Runner, hash string) tea.Cmd {
 	return func() tea.Msg {
 		if strings.TrimSpace(hash) == "" {
-			return diffLoadedMsg{Diff: ""}
+			return diffLoadedMsg{Diff: "", Context: diffContextNone}
 		}
 		out, err := r.ShowCommit(hash)
 		if err != nil {
 			return errMsg(err.Error())
 		}
-		return diffLoadedMsg{Diff: out}
+		return diffLoadedMsg{Diff: out, Context: diffContextCommit, Subtitle: hash}
+	}
+}
+
+// loadSplitDiffCmd loads both unstaged and staged diffs for a file
+func loadSplitDiffCmd(r git.Runner, path string) tea.Cmd {
+	return func() tea.Msg {
+		if strings.TrimSpace(path) == "" {
+			return splitDiffLoadedMsg{}
+		}
+
+		// Get unstaged diff
+		unstaged, _ := r.DiffFile(path, false)
+
+		// Get staged diff
+		staged, _ := r.DiffFile(path, true)
+
+		return splitDiffLoadedMsg{
+			Unstaged: unstaged,
+			Staged:   staged,
+			FilePath: path,
+		}
 	}
 }
 
@@ -170,30 +223,30 @@ func loadStashCmd(r git.Runner) tea.Cmd {
 func loadStashDiffCmd(r git.Runner, ref string) tea.Cmd {
 	return func() tea.Msg {
 		if strings.TrimSpace(ref) == "" {
-			return diffLoadedMsg{Diff: ""}
+			return diffLoadedMsg{Diff: "", Context: diffContextNone}
 		}
 		out, err := r.ShowStash(ref)
 		if err != nil {
 			return errMsg(err.Error())
 		}
-		return diffLoadedMsg{Diff: out}
+		return diffLoadedMsg{Diff: out, Context: diffContextStash, Subtitle: ref}
 	}
 }
 
 func loadBranchDiffCmd(r git.Runner, branch string) tea.Cmd {
 	return func() tea.Msg {
 		if strings.TrimSpace(branch) == "" {
-			return diffLoadedMsg{Diff: ""}
+			return diffLoadedMsg{Diff: "", Context: diffContextNone}
 		}
 		out, err := r.DiffBranch(branch)
 		if err != nil {
 			// May fail for current branch, show empty
-			return diffLoadedMsg{Diff: "(no diff from current branch)"}
+			return diffLoadedMsg{Diff: "(no diff from current branch)", Context: diffContextBranch, Subtitle: branch}
 		}
 		if strings.TrimSpace(out) == "" {
 			out = "(no diff from current branch)"
 		}
-		return diffLoadedMsg{Diff: out}
+		return diffLoadedMsg{Diff: out, Context: diffContextBranch, Subtitle: branch}
 	}
 }
 

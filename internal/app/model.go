@@ -22,14 +22,18 @@ type model struct {
 	focus ui.PaneID
 
 	// Components
-	statusPane   *components.StatusPane
-	filesPane    *components.FilesPane
-	branchesPane *components.BranchesPane
-	commitsPane  *components.CommitsPane
-	stashPane    *components.StashPane
-	diffView     *components.DiffView
-	cmdLogPane   *components.CmdLogPane
-	modal        *components.Modal
+	statusPane    *components.StatusPane
+	filesPane     *components.FilesPane
+	branchesPane  *components.BranchesPane
+	commitsPane   *components.CommitsPane
+	stashPane     *components.StashPane
+	diffView      *components.DiffView
+	splitDiffView *components.SplitDiffView
+	cmdLogPane    *components.CmdLogPane
+	modal         *components.Modal
+
+	// Track which pane we entered Main from (for split mode)
+	mainViewSource ui.PaneID
 
 	// UI
 	styles ui.Styles
@@ -51,14 +55,15 @@ func NewModel(repoRoot string) tea.Model {
 		styles:   styles,
 
 		// Initialize components
-		statusPane:   components.NewStatusPane(styles),
-		filesPane:    components.NewFilesPane(styles),
-		branchesPane: components.NewBranchesPane(styles),
-		commitsPane:  components.NewCommitsPane(styles),
-		stashPane:    components.NewStashPane(styles),
-		diffView:     components.NewDiffView(styles),
-		cmdLogPane:   components.NewCmdLogPane(styles),
-		modal:        components.NewModal(styles),
+		statusPane:    components.NewStatusPane(styles),
+		filesPane:     components.NewFilesPane(styles),
+		branchesPane:  components.NewBranchesPane(styles),
+		commitsPane:   components.NewCommitsPane(styles),
+		stashPane:     components.NewStashPane(styles),
+		diffView:      components.NewDiffView(styles),
+		splitDiffView: components.NewSplitDiffView(styles),
+		cmdLogPane:    components.NewCmdLogPane(styles),
+		modal:         components.NewModal(styles),
 	}
 
 	// Set initial repo info
@@ -71,6 +76,7 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		loadStatusCmd(m.git),
 		loadCommitsCmd(m.git),
+		loadReflogCmd(m.git),
 		loadBranchCmd(m.git),
 		loadBranchesCmd(m.git),
 		loadStashCmd(m.git),
@@ -93,6 +99,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.commitsPane.SetData(msg.Commits)
 		return m, nil
 
+	case reflogLoadedMsg:
+		m.commitsPane.SetReflogData(msg.Entries)
+		return m, nil
+
 	case branchLoadedMsg:
 		m.statusPane.SetData(m.repoName, msg.Branch)
 		return m, nil
@@ -110,7 +120,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case diffLoadedMsg:
-		m.diffView.SetDiff(msg.Diff)
+		m.diffView.SetDiffWithContext(msg.Diff, components.DiffContext(msg.Context), msg.Subtitle)
+		return m, nil
+
+	case splitDiffLoadedMsg:
+		m.splitDiffView.SetDiffs(msg.Unstaged, msg.Staged, msg.FilePath)
 		return m, nil
 
 	case gitCmdMsg:
@@ -127,6 +141,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(
 			loadStatusCmd(m.git),
 			loadCommitsCmd(m.git),
+			loadReflogCmd(m.git),
 			loadBranchCmd(m.git),
 			loadBranchesCmd(m.git),
 			loadStashCmd(m.git),
@@ -147,6 +162,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(
 			loadStatusCmd(m.git),
 			loadCommitsCmd(m.git),
+			loadReflogCmd(m.git),
 			loadBranchCmd(m.git),
 			loadBranchesCmd(m.git),
 			loadStashCmd(m.git),
@@ -188,7 +204,13 @@ func (m model) View() string {
 		statusBox, filesBox, branchesBox, commitsBox, stashBox)
 
 	// === Right side: Main + CmdLog ===
-	mainBox := m.diffView.RenderBox(m.focus == ui.PaneMain, m.styles)
+	var mainBox string
+	if m.focus == ui.PaneMain && m.mainViewSource == ui.PaneFiles {
+		// Split view for Files: Unstaged + Staged
+		mainBox = m.renderSplitMainBox()
+	} else {
+		mainBox = m.diffView.RenderBox(m.focus == ui.PaneMain, m.styles)
+	}
 	cmdLogBox := m.cmdLogPane.RenderBox(m.focus == ui.PaneCmdLog, m.styles)
 	rightSide := lipgloss.JoinVertical(lipgloss.Left, mainBox, cmdLogBox)
 
@@ -216,6 +238,7 @@ func (m *model) resizeComponents() {
 	m.commitsPane.SetSize(m.layout.SidebarWidth, m.layout.CommitsHeight)
 	m.stashPane.SetSize(m.layout.SidebarWidth, m.layout.StashHeight)
 	m.diffView.SetSize(m.layout.MainWidth, m.layout.MainHeight)
+	m.splitDiffView.SetSize(m.layout.MainWidth, m.layout.MainHeight)
 	m.cmdLogPane.SetSize(m.layout.MainWidth, m.layout.CmdLogHeight)
 }
 
@@ -252,13 +275,17 @@ func (m model) renderInfoBar() string {
 	case ui.PaneBranches:
 		opts = "space: checkout | n: new | d: delete | D: force delete"
 	case ui.PaneCommits:
-		opts = "enter: view | r: undo (staged) | R: undo (unstaged)"
+		opts = "[/]: commits/reflog | enter: view | r/R: undo"
 	case ui.PaneStash:
 		opts = "space: apply | p: pop | d: drop"
 	case ui.PaneCmdLog:
 		opts = "j/k: scroll | g/G: top/bottom"
 	case ui.PaneMain:
-		opts = "j/k: scroll | d/u: page | g/G: top/bottom"
+		if m.mainViewSource == ui.PaneFiles {
+			opts = "tab: switch pane | j/k: scroll | d/u: page | g/G: top/bottom"
+		} else {
+			opts = "j/k: scroll | d/u: page | g/G: top/bottom"
+		}
 	default:
 		opts = "tab: switch | p: pull | P: push | f: fetch | q: quit"
 	}
@@ -283,6 +310,11 @@ func (m model) renderInfoBar() string {
 	}
 
 	return left + strings.Repeat(" ", space) + right
+}
+
+// renderSplitMainBox renders the split diff view for Files pane
+func (m model) renderSplitMainBox() string {
+	return m.splitDiffView.View()
 }
 
 // loadDiffForCurrentPane loads diff based on current focus and selection

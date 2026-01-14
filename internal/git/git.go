@@ -58,6 +58,11 @@ func (r Runner) LogOneline() (string, error) {
 	return r.run(DefaultCmdTimeout, "log", "--oneline", "--decorate", "-n", "200")
 }
 
+// Reflog returns the reflog entries
+func (r Runner) Reflog() (string, error) {
+	return r.run(DefaultCmdTimeout, "reflog", "-n", "100")
+}
+
 func (r Runner) DiffFile(path string, staged bool) (string, error) {
 	if staged {
 		return r.run(DefaultDiffTimeout, "diff", "--staged", "--", path)

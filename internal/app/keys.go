@@ -17,18 +17,49 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "tab":
-		m.focus = m.nextFocusablePane()
+		// In split mode (Main from Files), tab toggles between panes
+		if m.focus == ui.PaneMain && m.mainViewSource == ui.PaneFiles {
+			m.splitDiffView.ToggleFocus()
+			return m, nil
+		}
+		// If in Main/CmdLog, go back to Files (lazygit style)
+		if m.focus == ui.PaneMain || m.focus == ui.PaneCmdLog {
+			m.focus = ui.PaneFiles
+			m.mainViewSource = 0
+		} else {
+			m.focus = m.nextFocusablePane()
+		}
 		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 		m.resizeComponents()
 		m.refreshAllPanes()
 		return m, m.loadDiffForCurrentPane()
 	case "shift+tab":
-		m.focus = m.prevFocusablePane()
+		// In split mode, shift+tab also toggles
+		if m.focus == ui.PaneMain && m.mainViewSource == ui.PaneFiles {
+			m.splitDiffView.ToggleFocus()
+			return m, nil
+		}
+		// If in Main/CmdLog, go back to Files (lazygit style)
+		if m.focus == ui.PaneMain || m.focus == ui.PaneCmdLog {
+			m.focus = ui.PaneFiles
+			m.mainViewSource = 0
+		} else {
+			m.focus = m.prevFocusablePane()
+		}
 		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 		m.resizeComponents()
 		m.refreshAllPanes()
 		return m, m.loadDiffForCurrentPane()
 	case "esc":
+		// If in Main/CmdLog, go back to previous sidebar pane
+		if m.focus == ui.PaneMain || m.focus == ui.PaneCmdLog {
+			m.focus = ui.PaneFiles
+			m.mainViewSource = 0 // Reset
+			m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
+			m.resizeComponents()
+			m.refreshAllPanes()
+			return m, nil
+		}
 		m.modal.Close()
 		return m, nil
 
@@ -56,45 +87,31 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "f":
 		return m, fetchCmd(m.git)
 
-	// Jump keys
+	// Jump keys (sidebar panes only, lazygit style)
 	case "1":
-		return m, nil // Status not focusable
-	case "2":
 		m.focus = ui.PaneFiles
 		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 		m.resizeComponents()
 		m.refreshAllPanes()
 		return m, m.loadDiffForCurrentPane()
-	case "3":
+	case "2":
 		m.focus = ui.PaneBranches
 		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 		m.resizeComponents()
 		m.refreshAllPanes()
-		return m, nil
-	case "4":
+		return m, m.loadBranchDiff()
+	case "3":
 		m.focus = ui.PaneCommits
 		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 		m.resizeComponents()
 		m.refreshAllPanes()
-		return m, m.loadDiffForCurrentPane()
-	case "5":
+		return m, m.loadCommitDiff()
+	case "4":
 		m.focus = ui.PaneStash
 		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 		m.resizeComponents()
 		m.refreshAllPanes()
-		return m, m.loadDiffForCurrentPane()
-	case "6":
-		m.focus = ui.PaneCmdLog
-		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
-		m.resizeComponents()
-		m.refreshAllPanes()
-		return m, nil
-	case "0":
-		m.focus = ui.PaneMain
-		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
-		m.resizeComponents()
-		m.refreshAllPanes()
-		return m, nil
+		return m, m.loadStashDiff()
 	}
 
 	// Pane-specific keys
@@ -134,6 +151,18 @@ func (m model) handleFilesKeys(key string) (tea.Model, tea.Cmd) {
 		m.filesPane.CursorBottom()
 		m.filesPane.Refresh()
 		return m, m.loadDiffForCurrentPane()
+	case "enter": // Focus main view (lazygit style) with split diff
+		m.focus = ui.PaneMain
+		m.mainViewSource = ui.PaneFiles
+		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
+		m.resizeComponents()
+		m.refreshAllPanes()
+		// Load split diff for selected file
+		item, _, found := m.filesPane.SelectedItem()
+		if found {
+			return m, loadSplitDiffCmd(m.git, item.Path)
+		}
+		return m, nil
 	case " ": // space to toggle stage/unstage
 		return m, m.toggleStageCmd()
 	case "a":
@@ -216,7 +245,16 @@ func (m model) handleCommitsKeys(key string) (tea.Model, tea.Cmd) {
 		m.commitsPane.CursorBottom()
 		m.commitsPane.Refresh()
 		return m, m.loadCommitDiff()
-	case "enter":
+	case "enter": // Focus main view to see full diff
+		m.focus = ui.PaneMain
+		m.mainViewSource = ui.PaneCommits
+		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
+		m.resizeComponents()
+		m.refreshAllPanes()
+		return m, m.loadCommitDiff()
+	case "[", "]": // Toggle between Commits and Reflog (lazygit style)
+		m.commitsPane.ToggleMode()
+		m.commitsPane.Refresh()
 		return m, m.loadCommitDiff()
 	case "r": // Reset soft
 		if m.commitsPane.SelectedIndex() == 0 && m.commitsPane.ItemCount() > 0 {
@@ -254,7 +292,12 @@ func (m model) handleStashKeys(key string) (tea.Model, tea.Cmd) {
 		m.stashPane.CursorBottom()
 		m.stashPane.Refresh()
 		return m, m.loadStashDiff()
-	case "enter":
+	case "enter": // Focus main view to see full stash diff
+		m.focus = ui.PaneMain
+		m.mainViewSource = ui.PaneStash
+		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
+		m.resizeComponents()
+		m.refreshAllPanes()
 		return m, m.loadStashDiff()
 	case " ": // Stash apply
 		entry, found := m.stashPane.SelectedEntry()
@@ -293,6 +336,29 @@ func (m model) handleCmdLogKeys(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleMainKeys(key string) (tea.Model, tea.Cmd) {
+	// In split mode (from Files pane), handle split pane navigation
+	if m.mainViewSource == ui.PaneFiles {
+		switch key {
+		case "tab":
+			m.splitDiffView.ToggleFocus()
+			return m, nil
+		case "j", "down":
+			m.splitDiffView.ScrollDown(1)
+		case "k", "up":
+			m.splitDiffView.ScrollUp(1)
+		case "d":
+			m.splitDiffView.PageDown()
+		case "u":
+			m.splitDiffView.PageUp()
+		case "g":
+			m.splitDiffView.GotoTop()
+		case "G":
+			m.splitDiffView.GotoBottom()
+		}
+		return m, nil
+	}
+
+	// Normal single diff view
 	switch key {
 	case "j", "down":
 		m.diffView.ScrollDown(1)
@@ -379,7 +445,8 @@ func (m model) handleModalInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 // --- Helper methods ---
 
 func (m model) nextFocusablePane() ui.PaneID {
-	order := []ui.PaneID{ui.PaneFiles, ui.PaneBranches, ui.PaneCommits, ui.PaneStash, ui.PaneMain, ui.PaneCmdLog}
+	// Lazygit style: only sidebar panes (Files, Branches, Commits, Stash)
+	order := []ui.PaneID{ui.PaneFiles, ui.PaneBranches, ui.PaneCommits, ui.PaneStash}
 	for i, p := range order {
 		if p == m.focus {
 			return order[(i+1)%len(order)]
@@ -389,7 +456,8 @@ func (m model) nextFocusablePane() ui.PaneID {
 }
 
 func (m model) prevFocusablePane() ui.PaneID {
-	order := []ui.PaneID{ui.PaneFiles, ui.PaneBranches, ui.PaneCommits, ui.PaneStash, ui.PaneMain, ui.PaneCmdLog}
+	// Lazygit style: only sidebar panes (Files, Branches, Commits, Stash)
+	order := []ui.PaneID{ui.PaneFiles, ui.PaneBranches, ui.PaneCommits, ui.PaneStash}
 	for i, p := range order {
 		if p == m.focus {
 			return order[(i+len(order)-1)%len(order)]
@@ -410,11 +478,12 @@ func (m model) toggleStageCmd() tea.Cmd {
 }
 
 func (m model) loadCommitDiff() tea.Cmd {
-	commit, found := m.commitsPane.SelectedCommit()
+	// Works for both commits and reflog modes
+	hash, found := m.commitsPane.SelectedHash()
 	if !found {
 		return nil
 	}
-	return loadShowCommitCmd(m.git, commit.Hash)
+	return loadShowCommitCmd(m.git, hash)
 }
 
 func (m model) loadBranchDiff() tea.Cmd {
