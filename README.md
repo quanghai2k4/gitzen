@@ -19,7 +19,25 @@ A TUI Git client inspired by [lazygit](https://github.com/jesseduffield/lazygit)
 
 ## Installation
 
-### From Release
+### Quick Install (Linux/macOS)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash
+```
+
+Or install a specific version:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- v0.1.0
+```
+
+To uninstall:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- --uninstall
+```
+
+### Manual Download
 
 Download the latest release for your platform from [Releases](https://github.com/quanghai2k4/gitzen/releases).
 
