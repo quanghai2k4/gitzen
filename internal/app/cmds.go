@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,6 +29,13 @@ type statusToastMsg string
 
 // cmdLogMsg is used to add entries to the command log pane
 type cmdLogMsg string
+
+// gitResultMsg contains both the command and result for logging
+type gitResultMsg struct {
+	Cmd    string
+	Result string
+	Err    error
+}
 
 func loadStatusCmd(r git.Runner) tea.Cmd {
 	return func() tea.Msg {
@@ -89,39 +97,43 @@ func loadShowCommitCmd(r git.Runner, hash string) tea.Cmd {
 // Stage a specific file
 func stageFileCmd(r git.Runner, path string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git add -- %s", path)
 		if err := r.Add(path); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("staged " + path)
+		return gitResultMsg{Cmd: cmd, Result: "staged " + path}
 	}
 }
 
 // Unstage a specific file
 func unstageFileCmd(r git.Runner, path string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git restore --staged -- %s", path)
 		if err := r.RestoreStaged(path); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("unstaged " + path)
+		return gitResultMsg{Cmd: cmd, Result: "unstaged " + path}
 	}
 }
 
 func stageAllCmd(r git.Runner) tea.Cmd {
 	return func() tea.Msg {
+		cmd := "git add ."
 		if err := r.Add("."); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("staged all")
+		return gitResultMsg{Cmd: cmd, Result: "staged all"}
 	}
 }
 
 func commitCmd(r git.Runner, message string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git commit -m %q", message)
 		_, err := r.Commit(message)
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("committed")
+		return gitResultMsg{Cmd: cmd, Result: "committed"}
 	}
 }
 
@@ -190,30 +202,34 @@ func loadBranchDiffCmd(r git.Runner, branch string) tea.Cmd {
 // Discard changes in a file
 func discardFileCmd(r git.Runner, path string, isUntracked bool) tea.Cmd {
 	return func() tea.Msg {
+		var cmd string
 		var err error
 		if isUntracked {
+			cmd = fmt.Sprintf("git clean -f -- %s", path)
 			err = r.DiscardUntracked(path)
 		} else {
+			cmd = fmt.Sprintf("git checkout -- %s", path)
 			err = r.DiscardFile(path)
 		}
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("discarded " + path)
+		return gitResultMsg{Cmd: cmd, Result: "discarded " + path}
 	}
 }
 
 // Pull from remote
 func pullCmd(r git.Runner) tea.Cmd {
 	return func() tea.Msg {
+		cmd := "git pull"
 		out, err := r.Pull()
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
 		if strings.Contains(out, "Already up to date") {
-			return statusToastMsg("Already up to date")
+			return gitResultMsg{Cmd: cmd, Result: "Already up to date"}
 		}
-		return statusToastMsg("Pulled successfully")
+		return gitResultMsg{Cmd: cmd, Result: "Pulled successfully"}
 	}
 }
 
@@ -225,46 +241,50 @@ func pushCmd(r git.Runner) tea.Cmd {
 			// Get current branch and remote
 			branch, err := r.CurrentBranch()
 			if err != nil {
-				return errMsg(err.Error())
+				return gitResultMsg{Cmd: "git push", Err: err}
 			}
 			branch = strings.TrimSpace(branch)
 			remote, err := r.GetRemote()
 			if err != nil {
-				return errMsg("No remote configured")
+				return gitResultMsg{Cmd: "git push", Err: fmt.Errorf("No remote configured")}
 			}
+			cmd := fmt.Sprintf("git push -u %s %s", remote, branch)
 			_, err = r.PushSetUpstream(remote, branch)
 			if err != nil {
-				return errMsg(err.Error())
+				return gitResultMsg{Cmd: cmd, Err: err}
 			}
-			return statusToastMsg("Pushed (set upstream " + remote + "/" + branch + ")")
+			return gitResultMsg{Cmd: cmd, Result: "Pushed (set upstream " + remote + "/" + branch + ")"}
 		}
+		cmd := "git push"
 		_, err := r.Push()
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Pushed successfully")
+		return gitResultMsg{Cmd: cmd, Result: "Pushed successfully"}
 	}
 }
 
 // Checkout branch
 func checkoutBranchCmd(r git.Runner, branch string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git checkout %s", branch)
 		_, err := r.CheckoutBranch(branch)
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Switched to " + branch)
+		return gitResultMsg{Cmd: cmd, Result: "Switched to " + branch}
 	}
 }
 
 // Create new branch
 func createBranchCmd(r git.Runner, name string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git checkout -b %s", name)
 		_, err := r.CreateBranch(name)
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Created branch " + name)
+		return gitResultMsg{Cmd: cmd, Result: "Created branch " + name}
 	}
 }
 
@@ -273,90 +293,105 @@ func createBranchCmd(r git.Runner, name string) tea.Cmd {
 // Fetch from remote
 func fetchCmd(r git.Runner) tea.Cmd {
 	return func() tea.Msg {
+		cmd := "git fetch --all --prune"
 		_, err := r.Fetch()
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Fetched all remotes")
+		return gitResultMsg{Cmd: cmd, Result: "Fetched all remotes"}
 	}
 }
 
 // Delete branch
 func deleteBranchCmd(r git.Runner, name string, force bool) tea.Cmd {
 	return func() tea.Msg {
+		var cmd string
 		var err error
 		if force {
+			cmd = fmt.Sprintf("git branch -D %s", name)
 			err = r.DeleteBranchForce(name)
 		} else {
+			cmd = fmt.Sprintf("git branch -d %s", name)
 			err = r.DeleteBranch(name)
 		}
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Deleted branch " + name)
+		return gitResultMsg{Cmd: cmd, Result: "Deleted branch " + name}
 	}
 }
 
 // Stash apply
 func stashApplyCmd(r git.Runner, ref string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git stash apply %s", ref)
 		if err := r.StashApply(ref); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Applied " + ref)
+		return gitResultMsg{Cmd: cmd, Result: "Applied " + ref}
 	}
 }
 
 // Stash pop
 func stashPopCmd(r git.Runner, ref string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git stash pop %s", ref)
 		if err := r.StashPop(ref); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Popped " + ref)
+		return gitResultMsg{Cmd: cmd, Result: "Popped " + ref}
 	}
 }
 
 // Stash drop
 func stashDropCmd(r git.Runner, ref string) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git stash drop %s", ref)
 		if err := r.StashDrop(ref); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Dropped " + ref)
+		return gitResultMsg{Cmd: cmd, Result: "Dropped " + ref}
 	}
 }
 
 // Amend commit
 func commitAmendCmd(r git.Runner, message string) tea.Cmd {
 	return func() tea.Msg {
+		var cmd string
+		if message == "" {
+			cmd = "git commit --amend --no-edit"
+		} else {
+			cmd = fmt.Sprintf("git commit --amend -m %q", message)
+		}
 		_, err := r.CommitAmend(message)
 		if err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
 		if message == "" {
-			return statusToastMsg("Amended commit (kept message)")
+			return gitResultMsg{Cmd: cmd, Result: "Amended commit (kept message)"}
 		}
-		return statusToastMsg("Amended commit")
+		return gitResultMsg{Cmd: cmd, Result: "Amended commit"}
 	}
 }
 
 // Reset soft (undo commit, keep staged)
 func resetSoftCmd(r git.Runner, n int) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git reset --soft HEAD~%d", n)
 		if err := r.ResetSoftHead(n); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Reset soft HEAD~" + string(rune('0'+n)))
+		return gitResultMsg{Cmd: cmd, Result: fmt.Sprintf("Reset soft HEAD~%d", n)}
 	}
 }
 
 // Reset mixed (undo commit, keep unstaged)
 func resetMixedCmd(r git.Runner, n int) tea.Cmd {
 	return func() tea.Msg {
+		cmd := fmt.Sprintf("git reset --mixed HEAD~%d", n)
 		if err := r.ResetMixedHead(n); err != nil {
-			return errMsg(err.Error())
+			return gitResultMsg{Cmd: cmd, Err: err}
 		}
-		return statusToastMsg("Reset mixed HEAD~" + string(rune('0'+n)))
+		return gitResultMsg{Cmd: cmd, Result: fmt.Sprintf("Reset mixed HEAD~%d", n)}
 	}
 }

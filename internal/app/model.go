@@ -131,6 +131,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			loadBranchesCmd(m.git),
 			loadStashCmd(m.git),
 		)
+
+	case gitResultMsg:
+		// Log the git command
+		m.cmdLogPane.AddEntry(msg.Cmd)
+		m.lastGitCmd = msg.Cmd
+
+		if msg.Err != nil {
+			m.modal.OpenError(msg.Err.Error())
+			return m, nil
+		}
+
+		// Show result as status toast
+		m.statusMsg = msg.Result
+		return m, tea.Batch(
+			loadStatusCmd(m.git),
+			loadCommitsCmd(m.git),
+			loadBranchCmd(m.git),
+			loadBranchesCmd(m.git),
+			loadStashCmd(m.git),
+		)
 	}
 
 	// Handle modal input first
@@ -250,7 +270,7 @@ func (m model) renderInfoBar() string {
 	if m.statusMsg != "" {
 		right = infoStyle.Render(m.statusMsg)
 	} else if m.lastGitCmd != "" {
-		right = dimStyle.Render("$ " + m.lastGitCmd)
+		right = dimStyle.Render(m.lastGitCmd)
 	} else {
 		right = infoStyle.Render("gitzen")
 	}
