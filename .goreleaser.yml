@@ -1,0 +1,150 @@
+# GoReleaser configuration for GitZen
+# Automated multi-platform binary releases
+# Docs: https://goreleaser.com
+
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+project_name: gitzen
+
+# Build configuration
+builds:
+  - id: gitzen
+    main: ./cmd/gitzen
+    binary: gitzen
+    
+    # Build flags
+    flags:
+      - -trimpath
+    
+    # Linker flags - strip debug info and embed version
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+    
+    # Environment
+    env:
+      - CGO_ENABLED=0
+    
+    # Target platforms
+    goos:
+      - linux
+      - darwin
+      - windows
+    
+    goarch:
+      - amd64
+      - arm64
+    
+    # Exclude combinations
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+# Archive configuration
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    
+    # Format: tar.gz for unix, zip for windows (using templating)
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    
+    # Files to include in archive
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+
+# Checksum file
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# Snapshot versioning (for non-tagged builds)
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# Changelog generation
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^style:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: "New Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Performance Improvements"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "Refactoring"
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: "Other"
+      order: 999
+
+# GitHub Release configuration
+# Note: Release is auto-detected from git remote in CI
+release:
+  # Release name template
+  name_template: "v{{ .Version }}"
+  
+  # Draft release first (manual publish)
+  draft: false
+  
+  # Mark as prerelease if tag contains alpha/beta/rc
+  prerelease: auto
+  
+  # Release mode
+  mode: replace
+  
+  # Release header/footer
+  header: |
+    ## GitZen v{{ .Version }}
+    
+    TUI Git client inspired by lazygit, written in Go with Bubble Tea.
+  
+  footer: |
+    ---
+    
+    ## Installation
+    
+    ```bash
+    # Linux/macOS - Download and extract
+    tar -xzf gitzen_{{ .Version }}_linux_amd64.tar.gz
+    sudo mv gitzen /usr/local/bin/
+    ```
+
+# Announce configuration (optional)
+# announce:
+#   discord:
+#     enabled: true
+#     message_template: "GitZen {{ .Tag }} is out! Check it out: {{ .ReleaseURL }}"
+
+# Build hooks (optional)
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+# Dist directory
+dist: dist

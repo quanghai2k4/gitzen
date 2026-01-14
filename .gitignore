@@ -5,10 +5,18 @@
 *.so
 *.dylib
 
+# Build output directories
+/build/
+/dist/
+
 # Go build cache
 .go/
 *.test
 *.out
+
+# Coverage reports
+coverage.out
+coverage.html
 
 # IDE
 .idea/
