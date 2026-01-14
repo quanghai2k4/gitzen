@@ -25,10 +25,20 @@ A TUI Git client inspired by [lazygit](https://github.com/jesseduffield/lazygit)
 curl -sSL https://quanghai2k4.github.io/gitzen/install | bash
 ```
 
-Or install a specific version:
+### Quick Install (Windows PowerShell)
+
+```powershell
+irm https://quanghai2k4.github.io/gitzen/install.ps1 | iex
+```
+
+### Install Specific Version
 
 ```bash
+# Linux/macOS
 curl -sSL https://quanghai2k4.github.io/gitzen/install | bash -s -- v0.1.0
+
+# Windows PowerShell
+$v="v0.1.0"; irm https://quanghai2k4.github.io/gitzen/install.ps1 | iex
 ```
 
 ### Uninstall
