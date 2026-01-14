@@ -22,23 +22,23 @@ A TUI Git client inspired by [lazygit](https://github.com/jesseduffield/lazygit)
 ### Quick Install (Linux/macOS)
 
 ```bash
-curl -sSL https://quanghai2k4.github.io/gitzen/install | bash
+curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash
 ```
 
 ### Quick Install (Windows PowerShell)
 
 ```powershell
-irm https://quanghai2k4.github.io/gitzen/install.ps1 | iex
+irm https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.ps1 | iex
 ```
 
 ### Install Specific Version
 
 ```bash
 # Linux/macOS
-curl -sSL https://quanghai2k4.github.io/gitzen/install | bash -s -- v0.1.0
+curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- v0.1.0
 
 # Windows PowerShell
-$v="v0.1.0"; irm https://quanghai2k4.github.io/gitzen/install.ps1 | iex
+$v="v0.1.0"; irm https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.ps1 | iex
 ```
 
 ### Uninstall
