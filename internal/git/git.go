@@ -117,7 +117,7 @@ func (r Runner) ListBranches() ([]Branch, error) {
 			name = line[1:]
 		}
 		branches = append(branches, Branch{
-			Name:      name,
+			Name:      strings.TrimSpace(name),
 			IsCurrent: isCurrent,
 			IsRemote:  false,
 		})
