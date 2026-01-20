@@ -1,0 +1,147 @@
+# GitZen Auto Release Workflow
+# Automatically bumps version and creates a release tag after push to master
+# Uses conventional commits to determine version bump type
+
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: "1.24"
+
+jobs:
+  # Job 1: Run tests first
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race ./...
+
+  # Job 2: Bump version and create tag
+  bump-version:
+    name: Bump Version & Tag
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
+      changelog: ${{ steps.bump.outputs.changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          # Get the latest tag, default to v0.0.0 if none exists
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
+          echo "Latest tag: $latest_tag"
+
+      - name: Determine version bump
+        id: bump
+        run: |
+          latest_tag="${{ steps.get_tag.outputs.latest_tag }}"
+          
+          # Remove 'v' prefix for parsing
+          version="${latest_tag#v}"
+          
+          # Parse version components
+          major=$(echo "$version" | cut -d. -f1)
+          minor=$(echo "$version" | cut -d. -f2)
+          patch=$(echo "$version" | cut -d. -f3 | cut -d- -f1)
+          
+          # Get commits since last tag
+          if [ "$latest_tag" = "v0.0.0" ]; then
+            commits=$(git log --oneline)
+          else
+            commits=$(git log "${latest_tag}..HEAD" --oneline)
+          fi
+          
+          echo "Commits since $latest_tag:"
+          echo "$commits"
+          
+          # Determine bump type based on conventional commits
+          bump_type="patch"
+          
+          if echo "$commits" | grep -qiE "^[a-f0-9]+ (feat|feature)(\(.+\))?!:"; then
+            bump_type="major"
+          elif echo "$commits" | grep -qiE "BREAKING CHANGE"; then
+            bump_type="major"
+          elif echo "$commits" | grep -qiE "^[a-f0-9]+ (feat|feature)(\(.+\))?:"; then
+            bump_type="minor"
+          fi
+          
+          # Calculate new version
+          case "$bump_type" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+          
+          new_tag="v${major}.${minor}.${patch}"
+          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+          echo "Bump type: $bump_type"
+          echo "New tag: $new_tag"
+          
+          # Generate simple changelog
+          changelog=$(echo "$commits" | head -20)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$changelog" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          new_tag="${{ steps.bump.outputs.new_tag }}"
+          if git rev-parse "$new_tag" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $new_tag already exists, skipping..."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          new_tag="${{ steps.bump.outputs.new_tag }}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$new_tag" -m "Release $new_tag"
+          git push origin "$new_tag"
+          
+          echo "Created and pushed tag: $new_tag"
