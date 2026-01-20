@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       new_tag: ${{ steps.bump.outputs.new_tag }}
-      changelog: ${{ steps.bump.outputs.changelog }}
+      should_release: ${{ steps.check_tag.outputs.exists == 'false' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -133,7 +133,8 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create and push tag
+      - name: Create tag
+        id: create_tag
         if: steps.check_tag.outputs.exists == 'false'
         run: |
           new_tag="${{ steps.bump.outputs.new_tag }}"
@@ -144,4 +145,37 @@ jobs:
           git tag -a "$new_tag" -m "Release $new_tag"
           git push origin "$new_tag"
           
+          echo "created=true" >> $GITHUB_OUTPUT
           echo "Created and pushed tag: $new_tag"
+
+  # Job 3: Build and release with GoReleaser
+  release:
+    name: Release
+    needs: bump-version
+    if: needs.bump-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch new tag
+        run: |
+          git fetch --tags
+          git checkout ${{ needs.bump-version.outputs.new_tag }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
