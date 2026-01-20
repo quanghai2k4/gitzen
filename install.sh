@@ -126,15 +126,79 @@ get_install_dir() {
     fi
 }
 
-# Check if directory is in PATH
+# Detect shell config file
+get_shell_config() {
+    local shell_name
+    shell_name=$(basename "$SHELL")
+    
+    case "$shell_name" in
+        zsh)
+            echo "$HOME/.zshrc"
+            ;;
+        bash)
+            if [ -f "$HOME/.bash_profile" ]; then
+                echo "$HOME/.bash_profile"
+            else
+                echo "$HOME/.bashrc"
+            fi
+            ;;
+        fish)
+            echo "$HOME/.config/fish/config.fish"
+            ;;
+        *)
+            echo "$HOME/.profile"
+            ;;
+    esac
+}
+
+# Add directory to PATH in shell config
+add_to_path() {
+    local dir="$1"
+    local shell_config
+    shell_config=$(get_shell_config)
+    
+    # Check if already in PATH
+    if [[ ":$PATH:" == *":$dir:"* ]]; then
+        return 0
+    fi
+    
+    # Check if already in shell config
+    if [ -f "$shell_config" ] && grep -q "export PATH=\"$dir:\$PATH\"" "$shell_config" 2>/dev/null; then
+        return 0
+    fi
+    
+    # Determine the export line based on shell
+    local export_line
+    local shell_name
+    shell_name=$(basename "$SHELL")
+    
+    if [ "$shell_name" = "fish" ]; then
+        export_line="fish_add_path $dir"
+    else
+        export_line="export PATH=\"$dir:\$PATH\""
+    fi
+    
+    # Add to shell config
+    info "Adding $dir to PATH in $shell_config..."
+    echo "" >> "$shell_config"
+    echo "# Added by gitzen installer" >> "$shell_config"
+    echo "$export_line" >> "$shell_config"
+    success "Added to $shell_config"
+    
+    # Also export for current session
+    export PATH="$dir:$PATH"
+    
+    echo ""
+    warn "Please restart your terminal or run:"
+    echo "  source $shell_config"
+    echo ""
+}
+
+# Check if directory is in PATH (legacy, now just calls add_to_path)
 check_path() {
     local dir="$1"
     if [[ ":$PATH:" != *":$dir:"* ]]; then
-        warn "$dir is not in your PATH"
-        echo ""
-        echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-        echo "  export PATH=\"$dir:\$PATH\""
-        echo ""
+        add_to_path "$dir"
     fi
 }
 
