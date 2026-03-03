@@ -51,10 +51,20 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.refreshAllPanes()
 		return m, m.loadDiffForCurrentPane()
 	case "esc":
+		// If in hunk view, exit back to files
+		if m.inHunkView {
+			m.inHunkView = false
+			m.focus = ui.PaneFiles
+			m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
+			m.resizeComponents()
+			m.refreshAllPanes()
+			return m, m.loadDiffForCurrentPane()
+		}
 		// If in Main/CmdLog, go back to previous sidebar pane
 		if m.focus == ui.PaneMain || m.focus == ui.PaneCmdLog {
 			m.focus = ui.PaneFiles
 			m.mainViewSource = 0 // Reset
+			m.inHunkView = false
 			m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 			m.resizeComponents()
 			m.refreshAllPanes()
@@ -127,6 +137,9 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case ui.PaneCmdLog:
 		return m.handleCmdLogKeys(key)
 	case ui.PaneMain:
+		if m.inHunkView {
+			return m.handleHunkViewKeys(key)
+		}
 		return m.handleMainKeys(key)
 	}
 
@@ -157,12 +170,21 @@ func (m model) handleFilesKeys(key string) (tea.Model, tea.Cmd) {
 		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
 		m.resizeComponents()
 		m.refreshAllPanes()
+		m.inHunkView = false
 		// Load split diff for selected file
 		item, _, found := m.filesPane.SelectedItem()
 		if found {
 			return m, loadSplitDiffCmd(m.git, item.Path)
 		}
 		return m, nil
+	case "v": // Enter hunk view to stage individual hunks
+		m.focus = ui.PaneMain
+		m.mainViewSource = ui.PaneFiles
+		m.inHunkView = true
+		m.layout = ui.CalculateLayout(m.layout.Width, m.layout.Height, m.focus)
+		m.resizeComponents()
+		m.refreshAllPanes()
+		return m, m.loadHunksForCurrentFile()
 	case " ": // space to toggle stage/unstage
 		return m, m.toggleStageCmd()
 	case "a":
@@ -372,6 +394,41 @@ func (m model) handleMainKeys(key string) (tea.Model, tea.Cmd) {
 		m.diffView.GotoTop()
 	case "G":
 		m.diffView.GotoBottom()
+	}
+	return m, nil
+}
+
+func (m model) handleHunkViewKeys(key string) (tea.Model, tea.Cmd) {
+	switch key {
+	case "j", "down":
+		m.hunkView.CursorDown()
+		m.hunkView.Refresh()
+	case "k", "up":
+		m.hunkView.CursorUp()
+		m.hunkView.Refresh()
+	case "g":
+		m.hunkView.CursorTop()
+		m.hunkView.Refresh()
+	case "G":
+		m.hunkView.CursorBottom()
+		m.hunkView.Refresh()
+	case " ": // Stage/unstage hunk
+		hunk, found := m.hunkView.SelectedHunk()
+		if found {
+			path := m.hunkView.CurrentPath()
+			isStaged := m.hunkView.IsStaged()
+			if isStaged {
+				return m, unstageHunkCmd(m.git, path, hunk.Content)
+			}
+			return m, stageHunkCmd(m.git, path, hunk.Content)
+		}
+	case "tab":
+		m.splitDiffView.ToggleFocus()
+		return m, nil
+	case "d":
+		m.hunkView.PageDown()
+	case "u":
+		m.hunkView.PageUp()
 	}
 	return m, nil
 }

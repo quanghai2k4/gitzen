@@ -29,11 +29,15 @@ type model struct {
 	stashPane     *components.StashPane
 	diffView      *components.DiffView
 	splitDiffView *components.SplitDiffView
+	hunkView      *components.HunkView
 	cmdLogPane    *components.CmdLogPane
 	modal         *components.Modal
 
 	// Track which pane we entered Main from (for split mode)
 	mainViewSource ui.PaneID
+
+	// Track hunk view mode
+	inHunkView bool
 
 	// UI
 	styles ui.Styles
@@ -48,11 +52,12 @@ func NewModel(repoRoot string) tea.Model {
 	styles := ui.DefaultStyles
 
 	m := model{
-		repoRoot: repoRoot,
-		repoName: filepath.Base(repoRoot),
-		git:      git.New(repoRoot),
-		focus:    ui.PaneFiles,
-		styles:   styles,
+		repoRoot:   repoRoot,
+		repoName:   filepath.Base(repoRoot),
+		git:        git.New(repoRoot),
+		focus:      ui.PaneFiles,
+		styles:     styles,
+		inHunkView: false,
 
 		// Initialize components
 		statusPane:    components.NewStatusPane(styles),
@@ -62,6 +67,7 @@ func NewModel(repoRoot string) tea.Model {
 		stashPane:     components.NewStashPane(styles),
 		diffView:      components.NewDiffView(styles),
 		splitDiffView: components.NewSplitDiffView(styles),
+		hunkView:      components.NewHunkView(styles),
 		cmdLogPane:    components.NewCmdLogPane(styles),
 		modal:         components.NewModal(styles),
 	}
@@ -125,6 +131,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case splitDiffLoadedMsg:
 		m.splitDiffView.SetDiffs(msg.Unstaged, msg.Staged, msg.FilePath)
+		return m, nil
+
+	case hunksLoadedMsg:
+		m.hunkView.SetHunks(msg.Hunks, msg.Path, msg.Staged)
 		return m, nil
 
 	case gitCmdMsg:
@@ -205,7 +215,9 @@ func (m model) View() string {
 
 	// === Right side: Main + CmdLog ===
 	var mainBox string
-	if m.focus == ui.PaneMain && m.mainViewSource == ui.PaneFiles {
+	if m.inHunkView {
+		mainBox = m.hunkView.RenderBox(true, m.styles)
+	} else if m.focus == ui.PaneMain && m.mainViewSource == ui.PaneFiles {
 		// Split view for Files: Unstaged + Staged
 		mainBox = m.renderSplitMainBox()
 	} else {
@@ -239,6 +251,7 @@ func (m *model) resizeComponents() {
 	m.stashPane.SetSize(m.layout.SidebarWidth, m.layout.StashHeight)
 	m.diffView.SetSize(m.layout.MainWidth, m.layout.MainHeight)
 	m.splitDiffView.SetSize(m.layout.MainWidth, m.layout.MainHeight)
+	m.hunkView.SetSize(m.layout.MainWidth, m.layout.MainHeight)
 	m.cmdLogPane.SetSize(m.layout.MainWidth, m.layout.CmdLogHeight)
 }
 
@@ -250,6 +263,7 @@ func (m *model) refreshAllPanes() {
 	m.commitsPane.SetFocus(m.focus == ui.PaneCommits)
 	m.stashPane.SetFocus(m.focus == ui.PaneStash)
 	m.diffView.SetFocus(m.focus == ui.PaneMain)
+	m.hunkView.SetFocus(m.inHunkView)
 	m.cmdLogPane.SetFocus(m.focus == ui.PaneCmdLog)
 
 	// Refresh content
@@ -258,6 +272,7 @@ func (m *model) refreshAllPanes() {
 	m.commitsPane.Refresh()
 	m.stashPane.Refresh()
 	m.statusPane.Refresh()
+	m.hunkView.Refresh()
 	m.cmdLogPane.Refresh()
 }
 
@@ -281,7 +296,9 @@ func (m model) renderInfoBar() string {
 	case ui.PaneCmdLog:
 		opts = "j/k: scroll | g/G: top/bottom"
 	case ui.PaneMain:
-		if m.mainViewSource == ui.PaneFiles {
+		if m.inHunkView {
+			opts = "space: stage/unstage | j/k: navigate | esc: exit"
+		} else if m.mainViewSource == ui.PaneFiles {
 			opts = "tab: switch pane | j/k: scroll | d/u: page | g/G: top/bottom"
 		} else {
 			opts = "j/k: scroll | d/u: page | g/G: top/bottom"
@@ -351,4 +368,13 @@ func (m model) loadDiffForCurrentPane() tea.Cmd {
 	default:
 		return nil
 	}
+}
+
+// loadHunksForCurrentFile loads hunks for the selected file
+func (m model) loadHunksForCurrentFile() tea.Cmd {
+	item, staged, found := m.filesPane.SelectedItem()
+	if !found {
+		return nil
+	}
+	return loadHunksCmd(m.git, item.Path, staged)
 }

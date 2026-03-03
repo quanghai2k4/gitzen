@@ -179,6 +179,89 @@ func (r Runner) DiscardFile(path string) error {
 	return err
 }
 
+// StageHunk stages a single hunk for a file
+// Uses git apply --cached with the hunk patch
+func (r Runner) StageHunk(path string, hunkContent string) error {
+	header := "diff --git a/" + path + " b/" + path + "\n"
+	fullPatch := header + hunkContent + "\n"
+	_, err := r.runWithStdin(fullPatch, DefaultCmdTimeout, "apply", "--cached", "-")
+	return err
+}
+
+// UnstageHunk unstages a single hunk for a file
+// Gets staged content and applies reverse hunk
+func (r Runner) UnstageHunk(path string, hunkContent string) error {
+	stagedContent, err := r.run(DefaultCmdTimeout, "show", ":0:"+path)
+	if err != nil {
+		return err
+	}
+
+	hunkContent = reverseHunk(hunkContent)
+	header := "diff --git a/" + path + " b/" + path + "\n"
+	fullPatch := header + hunkContent + "\n"
+
+	cmd := exec.Command("git", "apply", "-R", "-", "--", path)
+	cmd.Dir = r.RepoRoot
+	cmd.Stdin = strings.NewReader(fullPatch)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	_ = stagedContent
+	return cmd.Run()
+}
+
+func (r Runner) runWithStdin(stdin string, timeout time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	if r.RepoRoot != "" {
+		cmd.Dir = r.RepoRoot
+	}
+
+	cmd.Stdin = strings.NewReader(stdin)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return "", fmt.Errorf("git %s: timeout", strings.Join(args, " "))
+	}
+	if err != nil {
+		errText := strings.TrimSpace(stderr.String())
+		if errText == "" {
+			errText = strings.TrimSpace(stdout.String())
+		}
+		if errText == "" {
+			errText = err.Error()
+		}
+		return "", fmt.Errorf("git %s: %s", strings.Join(args, " "), errText)
+	}
+
+	return stdout.String(), nil
+}
+
+func reverseHunk(hunkContent string) string {
+	lines := strings.Split(hunkContent, "\n")
+	var result []string
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "+") {
+			result = append(result, "-"+strings.TrimPrefix(line, "+"))
+		} else if strings.HasPrefix(line, "-") {
+			result = append(result, "+"+strings.TrimPrefix(line, "-"))
+		} else {
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n")
+}
+
 // DiscardUntracked removes an untracked file
 func (r Runner) DiscardUntracked(path string) error {
 	_, err := r.run(DefaultCmdTimeout, "clean", "-f", "--", path)

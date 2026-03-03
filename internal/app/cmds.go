@@ -27,6 +27,12 @@ type diffLoadedMsg struct {
 	Subtitle string // file path, commit hash, etc.
 }
 
+type hunksLoadedMsg struct {
+	Hunks  []git.Hunk
+	Path   string
+	Staged bool
+}
+
 // splitDiffLoadedMsg contains both unstaged and staged diffs for split view
 type splitDiffLoadedMsg struct {
 	Unstaged string
@@ -110,6 +116,20 @@ func loadDiffCmd(r git.Runner, path string, staged bool) tea.Cmd {
 			out = "(no diff)"
 		}
 		return diffLoadedMsg{Diff: out, Context: diffContextFile, Subtitle: path}
+	}
+}
+
+func loadHunksCmd(r git.Runner, path string, staged bool) tea.Cmd {
+	return func() tea.Msg {
+		if strings.TrimSpace(path) == "" {
+			return hunksLoadedMsg{Hunks: nil, Path: "", Staged: staged}
+		}
+		out, err := r.DiffFile(path, staged)
+		if err != nil {
+			return errMsg(err.Error())
+		}
+		hunks := git.ParseHunks(out)
+		return hunksLoadedMsg{Hunks: hunks, Path: path, Staged: staged}
 	}
 }
 
@@ -446,5 +466,27 @@ func resetMixedCmd(r git.Runner, n int) tea.Cmd {
 			return gitResultMsg{Cmd: cmd, Err: err}
 		}
 		return gitResultMsg{Cmd: cmd, Result: fmt.Sprintf("Reset mixed HEAD~%d", n)}
+	}
+}
+
+// StageHunkCmd stages a single hunk
+func stageHunkCmd(r git.Runner, path string, hunkContent string) tea.Cmd {
+	return func() tea.Msg {
+		cmd := fmt.Sprintf("git stage hunk in %s", path)
+		if err := r.StageHunk(path, hunkContent); err != nil {
+			return gitResultMsg{Cmd: cmd, Err: err}
+		}
+		return gitResultMsg{Cmd: cmd, Result: "staged hunk in " + path}
+	}
+}
+
+// UnstageHunkCmd unstages a single hunk
+func unstageHunkCmd(r git.Runner, path string, hunkContent string) tea.Cmd {
+	return func() tea.Msg {
+		cmd := fmt.Sprintf("git unstage hunk in %s", path)
+		if err := r.UnstageHunk(path, hunkContent); err != nil {
+			return gitResultMsg{Cmd: cmd, Err: err}
+		}
+		return gitResultMsg{Cmd: cmd, Result: "unstaged hunk in " + path}
 	}
 }
