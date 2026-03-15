@@ -134,6 +134,26 @@ release:
     sudo mv gitzen /usr/local/bin/
     ```
 
+# Homebrew Tap configuration
+brews:
+  - repository:
+      owner: quanghai2k4
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/quanghai2k4/gitzen"
+    description: "A TUI Git client inspired by lazygit, written in Go with Bubble Tea."
+    install: |
+      bin.install "gitzen"
+
+# Scoop Bucket configuration
+scoops:
+  - repository:
+      owner: quanghai2k4
+      name: scoop-bucket
+    homepage: "https://github.com/quanghai2k4/gitzen"
+    description: "A TUI Git client inspired by lazygit, written in Go with Bubble Tea."
+    license: MIT
+
 # Announce configuration (optional)
 # announce:
 #   discord:
