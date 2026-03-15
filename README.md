@@ -49,7 +49,7 @@ gitzen --uninstall
 
 ### Manual Download
 
-Download the latest release for your platform from [Releases](https://github.com/quanghai2k4/gitzen/releases).
+Download the [Latest Release](https://github.com/quanghai2k4/gitzen/releases/latest) for your platform.
 
 ```bash
 # Linux/macOS
@@ -57,7 +57,7 @@ tar -xzf gitzen_*_linux_amd64.tar.gz
 sudo mv gitzen /usr/local/bin/
 
 # Windows
-# Extract gitzen_*_windows_amd64.zip and add to PATH
+# Extract the .zip archive and add the directory to your PATH
 ```
 
 ### From Source
