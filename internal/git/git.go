@@ -9,13 +9,16 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gitzen/internal/limits"
 )
 
 var (
 	ErrGitNotFound     = errors.New("git not found")
 	ErrNotARepository  = errors.New("not a git repository")
-	DefaultCmdTimeout  = 3 * time.Second
-	DefaultDiffTimeout = 10 * time.Second
+	DefaultCmdTimeout  = time.Duration(limits.CmdTimeoutSec) * time.Second
+	DefaultDiffTimeout = time.Duration(limits.DiffTimeoutSec) * time.Second
+	NetworkTimeout     = time.Duration(limits.NetworkTimeoutSec) * time.Second
 )
 
 type Runner struct {
@@ -55,12 +58,12 @@ func (r Runner) StatusPorcelainZ() ([]byte, error) {
 }
 
 func (r Runner) LogOneline() (string, error) {
-	return r.run(DefaultCmdTimeout, "log", "--oneline", "--decorate", "-n", "200")
+	return r.run(DefaultCmdTimeout, "log", "--oneline", "--decorate", "-n", fmt.Sprintf("%d", limits.MaxCommits))
 }
 
 // Reflog returns the reflog entries
 func (r Runner) Reflog() (string, error) {
-	return r.run(DefaultCmdTimeout, "reflog", "-n", "100")
+	return r.run(DefaultCmdTimeout, "reflog", "-n", fmt.Sprintf("%d", limits.MaxReflogEntries))
 }
 
 func (r Runner) DiffFile(path string, staged bool) (string, error) {
@@ -270,17 +273,17 @@ func (r Runner) DiscardUntracked(path string) error {
 
 // Pull fetches and merges from remote
 func (r Runner) Pull() (string, error) {
-	return r.run(30*time.Second, "pull")
+	return r.run(NetworkTimeout, "pull")
 }
 
 // Push pushes to remote
 func (r Runner) Push() (string, error) {
-	return r.run(30*time.Second, "push")
+	return r.run(NetworkTimeout, "push")
 }
 
 // PushSetUpstream pushes and sets upstream for new branch
 func (r Runner) PushSetUpstream(remote, branch string) (string, error) {
-	return r.run(30*time.Second, "push", "-u", remote, branch)
+	return r.run(NetworkTimeout, "push", "-u", remote, branch)
 }
 
 // CheckoutBranch switches to a branch
@@ -297,7 +300,7 @@ func (r Runner) CreateBranch(name string) (string, error) {
 
 // Fetch fetches from remote
 func (r Runner) Fetch() (string, error) {
-	return r.run(30*time.Second, "fetch", "--all", "--prune")
+	return r.run(NetworkTimeout, "fetch", "--all", "--prune")
 }
 
 // DeleteBranch deletes a local branch
