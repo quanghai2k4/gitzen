@@ -12,6 +12,7 @@ import (
 var (
 	version = "dev"
 	commit  = "none"
+	date    = "unknown"
 )
 
 func main() {
@@ -21,7 +22,9 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("gitzen %s (%s)\n", version, commit)
+		fmt.Printf("gitzen version: %s\n", version)
+		fmt.Printf("commit:  %s\n", commit)
+		fmt.Printf("built at: %s\n", date)
 		return
 	}
 

@@ -6,7 +6,7 @@ BINARY_NAME := gitzen
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GO_VERSION := $(shell go version | cut -d ' ' -f 3)
-LDFLAGS := -s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME)
+LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(shell git rev-parse HEAD 2>/dev/null || echo "none") -X main.date=$(BUILD_TIME)
 
 # Build directories
 BUILD_DIR := build
