@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"strings"
 
 	"gitzen/internal/git"
@@ -11,8 +12,9 @@ import (
 type BranchesPane struct {
 	BasePane
 
-	branches []git.Branch
-	styles   ui.Styles
+	branches     []git.Branch
+	commitCounts git.BranchCommitCounts
+	styles       ui.Styles
 }
 
 // NewBranchesPane tạo BranchesPane mới
@@ -27,6 +29,12 @@ func NewBranchesPane(styles ui.Styles) *BranchesPane {
 func (p *BranchesPane) SetData(branches []git.Branch) {
 	p.branches = branches
 	p.SetItemCount(len(branches))
+	p.refreshContent()
+}
+
+// SetCommitCounts cập nhật commit counts cho các branches
+func (p *BranchesPane) SetCommitCounts(counts git.BranchCommitCounts) {
+	p.commitCounts = counts
 	p.refreshContent()
 }
 
@@ -86,6 +94,28 @@ func (p *BranchesPane) refreshContent() {
 		}
 
 		line := prefix + b.Name
+		
+		// Thêm commit count indicators nếu có
+		if p.commitCounts != nil {
+			if count, exists := p.commitCounts[b.Name]; exists {
+				var indicators []string
+				
+				if count.Ahead > 0 {
+					aheadIndicator := p.styles.InfoStyle.Render("+"+fmt.Sprintf("%d", count.Ahead))
+					indicators = append(indicators, aheadIndicator)
+				}
+				
+				if count.Behind > 0 {
+					behindIndicator := p.styles.WarningStyle.Render("-"+fmt.Sprintf("%d", count.Behind))
+					indicators = append(indicators, behindIndicator)
+				}
+				
+				if len(indicators) > 0 {
+					line += " " + strings.Join(indicators, " ")
+				}
+			}
+		}
+
 		if selected {
 			line = p.styles.SelectedStyle.Render(line)
 		} else {
