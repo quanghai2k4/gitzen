@@ -56,7 +56,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Status bar fetch indicators and progress feedback
-- [ ] 03-02-PLAN.md — Toast notification system for fetch events
+- [x] 03-02-PLAN.md — Toast notification system for fetch events
 - [ ] 03-03-PLAN.md — New commit indicators and branch status updates
 **UI hint**: yes
 
@@ -66,7 +66,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Background Operations Foundation | 0/1 | Not started | - |
 | 2. Auto Fetch Implementation | 0/TBD | Not started | - |
-| 3. UI Integration & Visual Feedback | 1/3 | In Progress|  |
+| 3. UI Integration & Visual Feedback | 2/3 | In Progress|  |
 
 ## Dependencies
 
