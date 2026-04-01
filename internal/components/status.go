@@ -20,11 +20,12 @@ const (
 type StatusPane struct {
 	BasePane
 
-	repoName     string
-	branchName   string
-	fetchStatus  FetchStatus
-	lastFetchTime time.Time
-	styles       ui.Styles
+	repoName        string
+	branchName      string
+	fetchStatus     FetchStatus
+	lastFetchTime   time.Time
+	newCommitsCount int
+	styles          ui.Styles
 }
 
 // NewStatusPane tạo StatusPane mới
@@ -69,6 +70,12 @@ func (p *StatusPane) SetLastFetchTime(t time.Time) {
 // GetFetchStatus trả về trạng thái fetch hiện tại
 func (p *StatusPane) GetFetchStatus() FetchStatus {
 	return p.fetchStatus
+}
+
+// SetNewCommitsAvailable cập nhật số lượng commit mới có sẵn
+func (p *StatusPane) SetNewCommitsAvailable(count int) {
+	p.newCommitsCount = count
+	p.refreshContent()
 }
 
 // View returns rendered content
@@ -124,6 +131,12 @@ func (p *StatusPane) refreshContent() {
 			fetchIndicator := p.styles.DimStyle.Render(" [Last: " + timeStr + "]")
 			content += fetchIndicator
 		}
+	}
+	
+	// Add new commits indicator if available
+	if p.newCommitsCount > 0 {
+		newCommitsIndicator := p.styles.InfoStyle.Render(fmt.Sprintf(" [%d new]", p.newCommitsCount))
+		content += newCommitsIndicator
 	}
 	
 	p.SetContent(content)

@@ -10,6 +10,7 @@ import (
 	"gitzen/internal/background"
 	"gitzen/internal/components"
 	"gitzen/internal/git"
+	"gitzen/internal/logger"
 )
 
 type statusLoadedMsg struct{ Status git.Status }
@@ -98,6 +99,11 @@ type toastAddMsg struct {
 // toastExpiredMsg message khi toast hết hạn  
 type toastExpiredMsg struct {
 	id int
+}
+
+// commitCountsLoadedMsg thông báo khi commit counts được load
+type commitCountsLoadedMsg struct {
+	Counts git.BranchCommitCounts
 }
 
 // fileWatchRefreshCmd triggers a refresh of git status after file changes
@@ -587,4 +593,30 @@ func backgroundTickCmd() tea.Cmd {
 	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg {
 		return backgroundTickMsg(t)
 	})
+}
+
+// loadCommitCountsCmd tạo command để load commit counts cho branches
+func loadCommitCountsCmd(gitRunner git.Runner) tea.Cmd {
+	return func() tea.Msg {
+		// Get current branches from git - start with common defaults
+		branches := []string{"main", "master"}
+		
+		// Add current branch if it's not HEAD and not already included
+		if current, err := gitRunner.CurrentBranch(); err == nil {
+			current = strings.TrimSpace(current)
+			if current != "HEAD" && current != "main" && current != "master" {
+				branches = append(branches, current)
+			}
+		}
+		
+		// Get commit counts for these branches
+		counts, err := gitRunner.GetBranchCommitCounts(branches)
+		if err != nil {
+			// Don't fail UI on git errors, just log warning
+			logger.Get().Warn("failed to load commit counts: %v", err)
+			return commitCountsLoadedMsg{Counts: make(git.BranchCommitCounts)}
+		}
+		
+		return commitCountsLoadedMsg{Counts: counts}
+	}
 }

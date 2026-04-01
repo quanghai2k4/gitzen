@@ -246,6 +246,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					updateFetchStatusCmd(components.FetchSuccess),
 					clearFetchStatusCmd(),
 					addToastCmd("Startup fetch completed", components.ToastSuccess, 3*time.Second),
+					loadCommitCountsCmd(m.git), // Load commit counts after successful fetch
 				)
 			}
 		} else {
@@ -268,6 +269,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					updateFetchStatusCmd(components.FetchSuccess),
 					clearFetchStatusCmd(),
 					addToastCmd("Auto fetch completed", components.ToastSuccess, 3*time.Second),
+					loadCommitCountsCmd(m.git), // Load commit counts after successful fetch
 				)
 			} else {
 				// Keep current status for skipped operations
@@ -306,6 +308,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toastExpiredMsg:
 		// Remove expired toast
 		m.toastManager.RemoveToast(msg.id)
+		return m, nil
+
+	case commitCountsLoadedMsg:
+		// Update branches pane with commit counts
+		m.branchesPane.SetCommitCounts(msg.Counts)
+		
+		// Update status bar with new commits summary
+		totalAhead := 0
+		for _, count := range msg.Counts {
+			totalAhead += count.Ahead
+		}
+		if totalAhead > 0 {
+			m.statusPane.SetNewCommitsAvailable(totalAhead)
+		}
 		return m, nil
 
 	case background.FileWatchEventMsg:
