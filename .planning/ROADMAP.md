@@ -36,7 +36,11 @@ Plans:
   2. Auto fetch targets only main + current branch instead of all remotes for efficiency
   3. Auto fetch settings can be configured per-repository (enabled/disabled independently)
   4. Fetch operations handle authentication and network errors gracefully without crashing
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Git fetch methods and per-repository configuration system
+- [ ] 02-02-PLAN.md — Startup and background fetch integration
 
 ### Phase 3: UI Integration & Visual Feedback
 **Goal**: Users receive clear, non-intrusive feedback about auto fetch operations and status
