@@ -39,7 +39,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Git fetch methods and per-repository configuration system
+- [x] 02-01-PLAN.md — Git fetch methods and per-repository configuration system
 - [ ] 02-02-PLAN.md — Startup and background fetch integration
 
 ### Phase 3: UI Integration & Visual Feedback
