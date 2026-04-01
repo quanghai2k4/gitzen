@@ -2,6 +2,7 @@ package background
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -227,6 +228,36 @@ func (fw *FileWatcher) SetEnabled(enabled bool) {
 func (fw *FileWatcher) Close() error {
 	close(fw.done)
 	return fw.watcher.Close()
+}
+
+// StartSimple starts file watching for testing (without Bubble Tea)
+func (fw *FileWatcher) StartSimple(ctx context.Context) error {
+	if !fw.enabled {
+		return fmt.Errorf("file watcher is disabled")
+	}
+
+	// Add repository root to watcher
+	if err := fw.addWatchPaths(); err != nil {
+		return fmt.Errorf("failed to add watch paths: %w", err)
+	}
+
+	fmt.Println("Started monitoring file system events...")
+
+	// Start event processing
+	go fw.processEvents(ctx)
+
+	// Listen for events and print them
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case event, ok := <-fw.eventChan:
+			if !ok {
+				return nil
+			}
+			fmt.Printf("File change detected: %+v\n", event)
+		}
+	}
 }
 
 // shouldIgnoreDir checks if a directory should be ignored
