@@ -25,6 +25,23 @@ type stashLoadedMsg struct{ Entries []git.StashEntry }
 // backgroundTickMsg thông báo khi background timer được kích hoạt
 type backgroundTickMsg time.Time
 
+// startupFetchMsg triggers startup fetch process
+type startupFetchMsg struct{}
+
+// startupFetchResultMsg reports startup fetch completion/failure
+type startupFetchResultMsg struct {
+	Success bool
+	Skipped bool
+	Message string
+}
+
+// autoFetchResultMsg reports background auto fetch results
+type autoFetchResultMsg struct {
+	Success bool
+	Skipped bool
+	Message string
+}
+
 type diffLoadedMsg struct {
 	Diff     string
 	Context  int    // DiffContext type
