@@ -53,10 +53,10 @@ func NewToastManager(styles ui.Styles) *ToastManager {
 func (tm *ToastManager) AddToastNotification(toast ToastNotification) {
 	toast.ID = tm.nextID
 	tm.nextID++
-	
+
 	// Thêm toast mới
 	tm.toasts = append(tm.toasts, toast)
-	
+
 	// Giới hạn số lượng toasts
 	if len(tm.toasts) > tm.maxToasts {
 		// Xóa toast cũ nhất
@@ -82,7 +82,7 @@ func (tm *ToastManager) View(screenWidth, screenHeight int) string {
 
 	// Lọc và xóa toasts đã hết hạn
 	tm.removeExpired()
-	
+
 	if len(tm.toasts) == 0 {
 		return ""
 	}
@@ -109,24 +109,24 @@ func (tm *ToastManager) View(screenWidth, screenHeight int) string {
 func (tm *ToastManager) removeExpired() {
 	now := time.Now()
 	filtered := make([]ToastNotification, 0)
-	
+
 	for _, toast := range tm.toasts {
 		if now.Sub(toast.StartTime) < toast.Duration {
 			filtered = append(filtered, toast)
 		}
 	}
-	
+
 	tm.toasts = filtered
 }
 
 // renderToast render một toast notification
 func (tm *ToastManager) renderToast(toast ToastNotification) string {
 	width := 40
-	
+
 	// Chọn icon và border color theo level
 	var icon string
 	var borderColor lipgloss.Color
-	
+
 	switch toast.Level {
 	case ToastInfo:
 		icon = "ℹ"
@@ -141,14 +141,14 @@ func (tm *ToastManager) renderToast(toast ToastNotification) string {
 		icon = "❌"
 		borderColor = lipgloss.Color("1") // red
 	}
-	
+
 	// Format message với icon
 	message := fmt.Sprintf("%s %s", icon, toast.Message)
-	
+
 	// Wrap text nếu cần
 	innerWidth := width - 2
 	lines := wrapText(message, innerWidth)
-	
+
 	// Pad các dòng
 	var paddedLines []string
 	for _, line := range lines {
@@ -159,9 +159,9 @@ func (tm *ToastManager) renderToast(toast ToastNotification) string {
 		}
 		paddedLines = append(paddedLines, line+strings.Repeat(" ", padding))
 	}
-	
+
 	content := strings.Join(paddedLines, "\n")
-	
+
 	// Sử dụng renderBox pattern giống modal
 	return renderBox("", content, width, borderColor, borderColor)
 }

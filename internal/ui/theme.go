@@ -39,8 +39,8 @@ type Theme struct {
 	Options lipgloss.Color // keybindings in info bar
 
 	// Fetch status
-	Fetching    lipgloss.Color // spinner color for in-progress
-	FetchSuccess lipgloss.Color // success indicator color  
+	Fetching     lipgloss.Color // spinner color for in-progress
+	FetchSuccess lipgloss.Color // success indicator color
 	FetchError   lipgloss.Color // error indicator color
 }
 

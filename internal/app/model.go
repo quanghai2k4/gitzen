@@ -313,7 +313,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case commitCountsLoadedMsg:
 		// Update branches pane with commit counts
 		m.branchesPane.SetCommitCounts(msg.Counts)
-		
+
 		// Update status bar with new commits summary
 		totalAhead := 0
 		for _, count := range msg.Counts {
@@ -413,7 +413,7 @@ func (m model) renderWithToasts(baseContent, toastContent string) string {
 	toastLines := strings.Split(toastContent, "\n")
 	toastHeight := len(toastLines)
 	toastWidth := 0
-	
+
 	// Tìm width lớn nhất của toasts
 	for _, line := range toastLines {
 		if w := ansi.StringWidth(line); w > toastWidth {

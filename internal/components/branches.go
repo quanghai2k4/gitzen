@@ -94,22 +94,22 @@ func (p *BranchesPane) refreshContent() {
 		}
 
 		line := prefix + b.Name
-		
+
 		// Thêm commit count indicators nếu có
 		if p.commitCounts != nil {
 			if count, exists := p.commitCounts[b.Name]; exists {
 				var indicators []string
-				
+
 				if count.Ahead > 0 {
-					aheadIndicator := p.styles.InfoStyle.Render("+"+fmt.Sprintf("%d", count.Ahead))
+					aheadIndicator := p.styles.InfoStyle.Render("+" + fmt.Sprintf("%d", count.Ahead))
 					indicators = append(indicators, aheadIndicator)
 				}
-				
+
 				if count.Behind > 0 {
-					behindIndicator := p.styles.WarningStyle.Render("-"+fmt.Sprintf("%d", count.Behind))
+					behindIndicator := p.styles.WarningStyle.Render("-" + fmt.Sprintf("%d", count.Behind))
 					indicators = append(indicators, behindIndicator)
 				}
-				
+
 				if len(indicators) > 0 {
 					line += " " + strings.Join(indicators, " ")
 				}

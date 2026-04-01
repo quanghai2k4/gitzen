@@ -2,8 +2,8 @@ package components
 
 import (
 	"fmt"
-	"time"
 	"gitzen/internal/ui"
+	"time"
 )
 
 // FetchStatus định nghĩa trạng thái của fetch operation
@@ -11,7 +11,7 @@ type FetchStatus int
 
 const (
 	FetchIdle FetchStatus = iota
-	FetchInProgress  
+	FetchInProgress
 	FetchSuccess
 	FetchError
 )
@@ -31,10 +31,10 @@ type StatusPane struct {
 // NewStatusPane tạo StatusPane mới
 func NewStatusPane(styles ui.Styles) *StatusPane {
 	return &StatusPane{
-		BasePane:     NewBasePane(ui.PaneStatus),
-		fetchStatus:  FetchIdle,
+		BasePane:      NewBasePane(ui.PaneStatus),
+		fetchStatus:   FetchIdle,
 		lastFetchTime: time.Now(),
-		styles:       styles,
+		styles:        styles,
 	}
 }
 
@@ -100,7 +100,7 @@ func (p *StatusPane) refreshContent() {
 	branchStyle := p.styles.BranchLocalStyle
 
 	content := repoStyle.Render(p.repoName) + " → " + branchStyle.Render(branch)
-	
+
 	// Add fetch status indicator
 	switch p.fetchStatus {
 	case FetchInProgress:
@@ -132,13 +132,13 @@ func (p *StatusPane) refreshContent() {
 			content += fetchIndicator
 		}
 	}
-	
+
 	// Add new commits indicator if available
 	if p.newCommitsCount > 0 {
 		newCommitsIndicator := p.styles.InfoStyle.Render(fmt.Sprintf(" [%d new]", p.newCommitsCount))
 		content += newCommitsIndicator
 	}
-	
+
 	p.SetContent(content)
 }
 

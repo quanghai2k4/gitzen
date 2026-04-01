@@ -18,13 +18,13 @@ var (
 func main() {
 	// Parse arguments manually to support both short and long flags
 	args := os.Args[1:]
-	
+
 	var repoPath string
 	var showVersion, showHelp, uninstallFlag bool
-	
+
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		
+
 		switch {
 		case arg == "-h" || arg == "--help":
 			showHelp = true
@@ -134,7 +134,7 @@ For more information and documentation:
 func uninstall() {
 	fmt.Println("GitZen Uninstaller")
 	fmt.Println("==================")
-	
+
 	execPath, err := os.Executable()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Could not find executable path: %v\n", err)
@@ -149,7 +149,7 @@ func uninstall() {
 
 	fmt.Printf("Removing GitZen from: %s\n", realPath)
 	fmt.Print("Are you sure? (y/N): ")
-	
+
 	var response string
 	fmt.Scanln(&response)
 	if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {

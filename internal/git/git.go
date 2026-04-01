@@ -116,7 +116,7 @@ type Branch struct {
 // CommitCount đại diện cho số lượng commit ahead/behind của branch
 type CommitCount struct {
 	Ahead  int // commits ahead của remote
-	Behind int // commits behind remote  
+	Behind int // commits behind remote
 }
 
 // BranchCommitCounts maps branch names to their commit counts
@@ -401,7 +401,7 @@ func (r Runner) HasUpstream() bool {
 // GetBranchCommitCounts lấy số lượng commits ahead/behind cho các branches được chỉ định
 func (r Runner) GetBranchCommitCounts(branches []string) (BranchCommitCounts, error) {
 	counts := make(BranchCommitCounts)
-	
+
 	for _, branch := range branches {
 		count, err := r.GetSingleBranchCount(branch)
 		if err != nil {
@@ -410,7 +410,7 @@ func (r Runner) GetBranchCommitCounts(branches []string) (BranchCommitCounts, er
 		}
 		counts[branch] = count
 	}
-	
+
 	return counts, nil
 }
 
@@ -418,7 +418,7 @@ func (r Runner) GetBranchCommitCounts(branches []string) (BranchCommitCounts, er
 func (r Runner) GetSingleBranchCount(branch string) (CommitCount, error) {
 	// Kiểm tra xem branch có remote tracking không
 	remoteBranch := "origin/" + branch
-	
+
 	// Sử dụng git rev-list --count --left-right để lấy behind và ahead counts
 	args := []string{"rev-list", "--count", "--left-right", remoteBranch + "..." + branch}
 	output, err := r.run(DefaultCmdTimeout, args...)
@@ -426,12 +426,12 @@ func (r Runner) GetSingleBranchCount(branch string) (CommitCount, error) {
 		// Nếu remote branch không tồn tại, trả về 0,0
 		return CommitCount{Ahead: 0, Behind: 0}, nil
 	}
-	
+
 	behind, ahead, err := ParseCommitCountOutput(output)
 	if err != nil {
 		return CommitCount{Ahead: 0, Behind: 0}, err
 	}
-	
+
 	return CommitCount{Ahead: ahead, Behind: behind}, nil
 }
 
@@ -441,23 +441,23 @@ func ParseCommitCountOutput(output string) (int, int, error) {
 	if output == "" {
 		return 0, 0, nil
 	}
-	
+
 	parts := strings.Fields(output)
 	if len(parts) != 2 {
 		return 0, 0, fmt.Errorf("unexpected rev-list output format: %s", output)
 	}
-	
-	// Format: "behind_count\tahead_count" 
+
+	// Format: "behind_count\tahead_count"
 	behind, err := strconv.Atoi(parts[0])
 	if err != nil {
 		return 0, 0, fmt.Errorf("cannot parse behind count: %w", err)
 	}
-	
+
 	ahead, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return 0, 0, fmt.Errorf("cannot parse ahead count: %w", err)
 	}
-	
+
 	return behind, ahead, nil
 }
 

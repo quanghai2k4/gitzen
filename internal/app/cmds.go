@@ -71,7 +71,7 @@ func clearFetchStatusCmd() tea.Cmd {
 // addToastCmd tạo command để thêm toast notification với auto-expiration
 func addToastCmd(message string, level components.ToastLevel, duration time.Duration) tea.Cmd {
 	toastID := int(time.Now().UnixNano()) // Unique ID based on timestamp
-	
+
 	return tea.Batch(
 		func() tea.Msg {
 			return toastAddMsg{
@@ -96,7 +96,7 @@ type toastAddMsg struct {
 	toast components.ToastNotification
 }
 
-// toastExpiredMsg message khi toast hết hạn  
+// toastExpiredMsg message khi toast hết hạn
 type toastExpiredMsg struct {
 	id int
 }
@@ -600,7 +600,7 @@ func loadCommitCountsCmd(gitRunner git.Runner) tea.Cmd {
 	return func() tea.Msg {
 		// Get current branches from git - start with common defaults
 		branches := []string{"main", "master"}
-		
+
 		// Add current branch if it's not HEAD and not already included
 		if current, err := gitRunner.CurrentBranch(); err == nil {
 			current = strings.TrimSpace(current)
@@ -608,7 +608,7 @@ func loadCommitCountsCmd(gitRunner git.Runner) tea.Cmd {
 				branches = append(branches, current)
 			}
 		}
-		
+
 		// Get commit counts for these branches
 		counts, err := gitRunner.GetBranchCommitCounts(branches)
 		if err != nil {
@@ -616,7 +616,7 @@ func loadCommitCountsCmd(gitRunner git.Runner) tea.Cmd {
 			logger.Get().Warn("failed to load commit counts: %v", err)
 			return commitCountsLoadedMsg{Counts: make(git.BranchCommitCounts)}
 		}
-		
+
 		return commitCountsLoadedMsg{Counts: counts}
 	}
 }
