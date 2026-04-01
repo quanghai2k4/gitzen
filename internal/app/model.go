@@ -159,6 +159,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case backgroundTickMsg:
 		// Background timer tick - execute auto fetch and continue timer loop
 		return m, tea.Batch(
+			updateFetchStatusCmd(components.FetchInProgress),
 			m.executeAutoFetchCmd(),
 			backgroundTickCmd(),
 		)
@@ -222,28 +223,71 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case startupFetchMsg:
 		// Handle startup fetch trigger
-		return m, handleStartupFetch(m)
+		return m, tea.Batch(
+			updateFetchStatusCmd(components.FetchInProgress),
+			handleStartupFetch(m),
+		)
 
 	case startupFetchResultMsg:
-		// Log startup fetch result
+		// Log startup fetch result and update status
+		var cmd tea.Cmd
 		if msg.Success {
 			if msg.Skipped {
 				m.cmdLogPane.AddEntry("startup fetch: " + msg.Message)
+				cmd = updateFetchStatusCmd(components.FetchIdle) // Keep idle for skipped
 			} else {
 				m.cmdLogPane.AddEntry("startup fetch: " + msg.Message)
 				m.statusMsg = "startup fetch completed"
+				cmd = tea.Batch(
+					updateFetchStatusCmd(components.FetchSuccess),
+					clearFetchStatusCmd(),
+				)
 			}
 		} else {
 			m.cmdLogPane.AddEntry("startup fetch failed: " + msg.Message)
+			cmd = tea.Batch(
+				updateFetchStatusCmd(components.FetchError),
+				clearFetchStatusCmd(),
+			)
+		}
+		return m, cmd
+
+	case autoFetchResultMsg:
+		// Log auto fetch result and update status
+		var cmd tea.Cmd
+		if msg.Success {
+			if !msg.Skipped {
+				m.cmdLogPane.AddEntry("auto fetch: " + msg.Message)
+				cmd = tea.Batch(
+					updateFetchStatusCmd(components.FetchSuccess),
+					clearFetchStatusCmd(),
+				)
+			} else {
+				// Keep current status for skipped operations
+				cmd = updateFetchStatusCmd(components.FetchIdle)
+			}
+		} else {
+			// Don't show failures in UI to avoid noise - they're logged
+			cmd = tea.Batch(
+				updateFetchStatusCmd(components.FetchError),
+				clearFetchStatusCmd(),
+			)
+		}
+		return m, cmd
+
+	case fetchStatusUpdateMsg:
+		// Update fetch status in status pane
+		m.statusPane.SetFetchStatus(msg.Status)
+		if msg.Status == components.FetchSuccess {
+			m.statusPane.SetLastFetchTime(msg.Timestamp)
 		}
 		return m, nil
 
-	case autoFetchResultMsg:
-		// Log auto fetch result
-		if msg.Success && !msg.Skipped {
-			m.cmdLogPane.AddEntry("auto fetch: " + msg.Message)
+	case fetchStatusClearMsg:
+		// Clear fetch status back to idle (only if not currently in progress)
+		if m.statusPane.GetFetchStatus() != components.FetchInProgress {
+			m.statusPane.SetFetchStatus(components.FetchIdle)
 		}
-		// Don't show failures in UI to avoid noise - they're logged
 		return m, nil
 
 	case background.FileWatchEventMsg:

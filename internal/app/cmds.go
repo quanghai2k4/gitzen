@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"gitzen/internal/background"
+	"gitzen/internal/components"
 	"gitzen/internal/git"
 )
 
@@ -41,6 +42,29 @@ type autoFetchResultMsg struct {
 	Success bool
 	Skipped bool
 	Message string
+}
+
+// fetchStatusUpdateMsg thông báo cập nhật trạng thái fetch
+type fetchStatusUpdateMsg struct {
+	Status    components.FetchStatus
+	Timestamp time.Time
+}
+
+// fetchStatusClearMsg thông báo xóa trạng thái fetch (success/error -> idle)
+type fetchStatusClearMsg struct{}
+
+// updateFetchStatusCmd tạo command để cập nhật trạng thái fetch
+func updateFetchStatusCmd(status components.FetchStatus) tea.Cmd {
+	return func() tea.Msg {
+		return fetchStatusUpdateMsg{Status: status, Timestamp: time.Now()}
+	}
+}
+
+// clearFetchStatusCmd tạo command để xóa trạng thái fetch sau 3 giây
+func clearFetchStatusCmd() tea.Cmd {
+	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+		return fetchStatusClearMsg{}
+	})
 }
 
 // fileWatchRefreshCmd triggers a refresh of git status after file changes
