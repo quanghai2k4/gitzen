@@ -90,7 +90,25 @@ func (fw *FileWatcher) addWatchPaths() error {
 		return err
 	}
 
-	// Add subdirectories (excluding .git)
+	// Add critical git files and directories for detecting git operations
+	gitPaths := []string{
+		filepath.Join(fw.repoRoot, ".git"),
+		filepath.Join(fw.repoRoot, ".git", "HEAD"),
+		filepath.Join(fw.repoRoot, ".git", "index"),
+		filepath.Join(fw.repoRoot, ".git", "refs"),
+		filepath.Join(fw.repoRoot, ".git", "refs", "heads"),
+		filepath.Join(fw.repoRoot, ".git", "refs", "remotes"),
+	}
+
+	for _, gitPath := range gitPaths {
+		if _, err := os.Stat(gitPath); err == nil {
+			if err := fw.watcher.Add(gitPath); err != nil {
+				logger.Get().Warn("file watcher: failed to watch %s: %v", gitPath, err)
+			}
+		}
+	}
+
+	// Add subdirectories (but be selective about .git subdirs)
 	return filepath.Walk(fw.repoRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip errored paths
@@ -100,12 +118,19 @@ func (fw *FileWatcher) addWatchPaths() error {
 			return nil
 		}
 
-		// Skip .git directory and its subdirectories
-		if strings.Contains(path, "/.git/") || strings.HasSuffix(path, "/.git") {
-			if info.IsDir() {
-				return filepath.SkipDir
+		// Handle .git directory specially - only watch key subdirs
+		if strings.Contains(path, "/.git/") {
+			// Allow watching key git subdirectories
+			if strings.Contains(path, "/refs/") || strings.Contains(path, "/objects/") {
+				return fw.watcher.Add(path)
 			}
-			return nil
+			// Skip other .git subdirectories to avoid noise
+			return filepath.SkipDir
+		}
+
+		// Skip the .git directory itself - we handle it above
+		if strings.HasSuffix(path, "/.git") {
+			return nil // Already handled above
 		}
 
 		// Skip ignored directories
@@ -146,8 +171,19 @@ func (fw *FileWatcher) handleRawEvent(event fsnotify.Event) {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
 
-	// Skip .git directory events and temporary files
-	if strings.Contains(event.Name, "/.git/") || strings.HasSuffix(event.Name, "~") || strings.Contains(event.Name, ".tmp") {
+	// Skip temporary files but allow important git files
+	if strings.HasSuffix(event.Name, "~") || strings.Contains(event.Name, ".tmp") {
+		return
+	}
+
+	// Allow important git files that indicate repository changes
+	isImportantGitFile := strings.Contains(event.Name, "/.git/HEAD") ||
+		strings.Contains(event.Name, "/.git/index") ||
+		strings.Contains(event.Name, "/.git/refs/") ||
+		(strings.Contains(event.Name, "/.git/") && !strings.Contains(event.Name, "/.git/objects/") && !strings.Contains(event.Name, "/.git/logs/"))
+
+	// Skip most .git directory events except important ones
+	if strings.Contains(event.Name, "/.git/") && !isImportantGitFile {
 		return
 	}
 
@@ -168,6 +204,9 @@ func (fw *FileWatcher) handleRawEvent(event fsnotify.Event) {
 
 	// Add to pending events for debouncing
 	fw.pendingEvents[event.Name] = eventType
+	
+	// Debug logging to help track what events we're seeing
+	logger.Get().Debug("file watcher: detected %v event for %s", eventType, event.Name)
 
 	// Reset debounce timer
 	if fw.debounceTimer != nil {
@@ -191,13 +230,19 @@ func (fw *FileWatcher) flushPendingEvents() {
 
 	// Send consolidated event (we only care that something changed)
 	if len(events) > 0 {
+		logger.Get().Debug("file watcher: flushing %d events, triggering git status refresh", len(events))
+		for path, eventType := range events {
+			logger.Get().Debug("  - %v: %s", eventType, path)
+		}
+		
 		select {
 		case fw.eventChan <- FileWatchEvent{
 			Type: FileModified, // Simplified: just trigger refresh
 			Time: time.Now(),
 		}:
+			logger.Get().Debug("file watcher: successfully sent refresh event")
 		default:
-			// Channel full, skip this event
+			logger.Get().Warn("file watcher: event channel full, skipping refresh")
 		}
 	}
 }
