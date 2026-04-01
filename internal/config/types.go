@@ -16,9 +16,9 @@ type AutoFetchConfig struct {
 
 // FileWatchConfig chứa các cài đặt cho tính năng file watching
 type FileWatchConfig struct {
-	Enabled       bool     `yaml:"enabled"`
-	DebounceMs    int      `yaml:"debounce_ms"`
-	IgnoredDirs   []string `yaml:"ignored_dirs"`
+	Enabled     bool     `yaml:"enabled"`
+	DebounceMs  int      `yaml:"debounce_ms"`
+	IgnoredDirs []string `yaml:"ignored_dirs"`
 }
 
 // IsValid kiểm tra tính hợp lệ của cấu hình

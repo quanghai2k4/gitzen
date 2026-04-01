@@ -91,7 +91,7 @@ func NewModel(repoRoot string) tea.Model {
 		m.cmdLogPane.AddEntry("warning: failed to load config, using defaults: " + err.Error())
 		repoConfig = config.NewDefaultConfig()
 	}
-	
+
 	if err := m.backgroundManager.InitFileWatcher(repoRoot, repoConfig.FileWatch.Enabled); err != nil {
 		// Log warning but don't fail - file watching is not critical
 		m.cmdLogPane.AddEntry("warning: failed to initialize file watcher: " + err.Error())
@@ -250,7 +250,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// File system change detected, refresh git status
 		ctx, cancel := context.WithCancel(context.Background())
 		m.backgroundCancel = cancel
-		
+
 		return m, tea.Batch(
 			fileWatchRefreshCmd(m.git),
 			m.backgroundManager.StartFileWatcher(ctx), // Continue watching

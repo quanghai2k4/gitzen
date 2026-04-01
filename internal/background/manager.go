@@ -75,7 +75,7 @@ func (m *Manager) InitFileWatcher(repoRoot string, enabled bool) error {
 	if err != nil {
 		return err
 	}
-	
+
 	watcher.SetEnabled(enabled)
 	m.fileWatcher = watcher
 	return nil

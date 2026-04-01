@@ -18,7 +18,7 @@ func startupFetchCmd() tea.Cmd {
 func handleStartupFetch(m model) tea.Cmd {
 	return func() tea.Msg {
 		log := logger.Get()
-		
+
 		// Load repository configuration
 		repoConfig, err := config.LoadRepoConfig(m.repoRoot)
 		if err != nil {
@@ -42,20 +42,20 @@ func handleStartupFetch(m model) tea.Cmd {
 				log.Warn("startup fetch: cannot get default branch: %v", err)
 				defaultBranch = "main" // fallback
 			}
-			
-			currentBranch, err := m.git.GetCurrentBranch() 
+
+			currentBranch, err := m.git.GetCurrentBranch()
 			if err != nil {
 				log.Warn("startup fetch: cannot get current branch: %v", err)
 				currentBranch = "HEAD" // fallback
 			}
-			
+
 			// Deduplicate branches
 			branchSet := make(map[string]bool)
 			branchSet[defaultBranch] = true
 			if currentBranch != "HEAD" {
 				branchSet[currentBranch] = true
 			}
-			
+
 			for branch := range branchSet {
 				targetBranches = append(targetBranches, branch)
 			}

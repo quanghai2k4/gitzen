@@ -11,7 +11,7 @@ import (
 func (m *Manager) ExecuteAutoFetch(repoRoot string) tea.Cmd {
 	return func() tea.Msg {
 		log := logger.Get()
-		
+
 		// Load repository configuration
 		repoConfig, err := config.LoadRepoConfig(repoRoot)
 		if err != nil {
@@ -35,20 +35,20 @@ func (m *Manager) ExecuteAutoFetch(repoRoot string) tea.Cmd {
 				log.Warn("auto fetch: cannot get default branch: %v", err)
 				defaultBranch = "main" // fallback
 			}
-			
+
 			currentBranch, err := m.gitRunner.GetCurrentBranch()
 			if err != nil {
 				log.Warn("auto fetch: cannot get current branch: %v", err)
 				currentBranch = "HEAD" // fallback
 			}
-			
+
 			// Deduplicate branches
 			branchSet := make(map[string]bool)
 			branchSet[defaultBranch] = true
 			if currentBranch != "HEAD" {
 				branchSet[currentBranch] = true
 			}
-			
+
 			for branch := range branchSet {
 				targetBranches = append(targetBranches, branch)
 			}

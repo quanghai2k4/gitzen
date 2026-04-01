@@ -71,7 +71,7 @@ func TestNewDefaultConfig(t *testing.T) {
 		t.Error("Default config should have Enabled = true")
 	}
 	if !config.AutoFetch.StartupFetch {
-		t.Error("Default config should have StartupFetch = true")  
+		t.Error("Default config should have StartupFetch = true")
 	}
 	if config.AutoFetch.IntervalMinutes != 30 {
 		t.Errorf("Default config should have IntervalMinutes = 30, got: %d", config.AutoFetch.IntervalMinutes)
@@ -83,7 +83,7 @@ func TestNewDefaultConfig(t *testing.T) {
 
 func TestConfigValidation(t *testing.T) {
 	config := NewDefaultConfig()
-	
+
 	// Test valid config
 	if !config.IsValid() {
 		t.Error("Default config should be valid")

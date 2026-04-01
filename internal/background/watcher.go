@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
-	tea "github.com/charmbracelet/bubbletea"
 	"gitzen/internal/logger"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/fsnotify/fsnotify"
 )
 
 // FileWatchEvent represents a file system change
@@ -32,12 +33,12 @@ const (
 
 // FileWatcher manages file system watching for git repositories
 type FileWatcher struct {
-	mu            sync.Mutex
-	watcher       *fsnotify.Watcher
-	repoRoot      string
-	enabled       bool
-	eventChan     chan FileWatchEvent
-	done          chan struct{}
+	mu        sync.Mutex
+	watcher   *fsnotify.Watcher
+	repoRoot  string
+	enabled   bool
+	eventChan chan FileWatchEvent
+	done      chan struct{}
 
 	// Debouncing
 	debounceTimer *time.Timer
