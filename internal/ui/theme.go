@@ -37,6 +37,11 @@ type Theme struct {
 	Warning lipgloss.Color
 	Error   lipgloss.Color
 	Options lipgloss.Color // keybindings in info bar
+
+	// Fetch status
+	Fetching    lipgloss.Color // spinner color for in-progress
+	FetchSuccess lipgloss.Color // success indicator color  
+	FetchError   lipgloss.Color // error indicator color
 }
 
 // DefaultTheme - lazygit-style colors
@@ -74,6 +79,11 @@ var DefaultTheme = Theme{
 	Warning: lipgloss.Color("3"),
 	Error:   lipgloss.Color("1"),
 	Options: lipgloss.Color("4"),
+
+	// Fetch status
+	Fetching:     lipgloss.Color("4"), // blue for in-progress
+	FetchSuccess: lipgloss.Color("2"), // green for success
+	FetchError:   lipgloss.Color("1"), // red for error
 }
 
 // Styles là pre-built styles từ Theme
@@ -114,6 +124,11 @@ type Styles struct {
 	WarningStyle lipgloss.Style
 	ErrorStyle   lipgloss.Style
 	OptionsStyle lipgloss.Style
+
+	// Fetch status
+	FetchingStyle     lipgloss.Style
+	FetchSuccessStyle lipgloss.Style
+	FetchErrorStyle   lipgloss.Style
 
 	// Modal
 	ModalStyle        lipgloss.Style
@@ -164,6 +179,11 @@ func NewStyles(t Theme) Styles {
 		WarningStyle: lipgloss.NewStyle().Foreground(t.Warning),
 		ErrorStyle:   lipgloss.NewStyle().Foreground(t.Error),
 		OptionsStyle: lipgloss.NewStyle().Foreground(t.Options),
+
+		// Fetch status
+		FetchingStyle:     lipgloss.NewStyle().Foreground(t.Fetching),
+		FetchSuccessStyle: lipgloss.NewStyle().Foreground(t.FetchSuccess),
+		FetchErrorStyle:   lipgloss.NewStyle().Foreground(t.FetchError),
 
 		// Modal borders
 		ModalStyle: lipgloss.NewStyle().
