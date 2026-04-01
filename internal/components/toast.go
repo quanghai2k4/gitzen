@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
@@ -40,16 +39,6 @@ type ToastManager struct {
 	nextID    int
 }
 
-// toastAddMsg thông báo thêm toast mới
-type toastAddMsg struct {
-	toast ToastNotification
-}
-
-// toastExpiredMsg thông báo toast đã hết hạn
-type toastExpiredMsg struct {
-	id int
-}
-
 // NewToastManager tạo ToastManager mới
 func NewToastManager(styles ui.Styles) *ToastManager {
 	return &ToastManager{
@@ -60,50 +49,29 @@ func NewToastManager(styles ui.Styles) *ToastManager {
 	}
 }
 
-// AddToast thêm toast mới và trả về command để auto-dismiss
-func (tm *ToastManager) AddToast(message string, level ToastLevel, duration time.Duration) tea.Cmd {
-	toast := ToastNotification{
-		ID:        tm.nextID,
-		Message:   message,
-		Level:     level,
-		Duration:  duration,
-		StartTime: time.Now(),
-		Visible:   true,
-	}
+// AddToastNotification thêm toast notification trực tiếp
+func (tm *ToastManager) AddToastNotification(toast ToastNotification) {
+	toast.ID = tm.nextID
 	tm.nextID++
-
-	return tea.Batch(
-		func() tea.Msg { return toastAddMsg{toast: toast} },
-		tea.Tick(duration, func(t time.Time) tea.Msg {
-			return toastExpiredMsg{id: toast.ID}
-		}),
-	)
+	
+	// Thêm toast mới
+	tm.toasts = append(tm.toasts, toast)
+	
+	// Giới hạn số lượng toasts
+	if len(tm.toasts) > tm.maxToasts {
+		// Xóa toast cũ nhất
+		tm.toasts = tm.toasts[1:]
+	}
 }
 
-// Update xử lý các message liên quan đến toast
-func (tm *ToastManager) Update(msg tea.Msg) (*ToastManager, tea.Cmd) {
-	switch msg := msg.(type) {
-	case toastAddMsg:
-		// Thêm toast mới
-		tm.toasts = append(tm.toasts, msg.toast)
-		
-		// Giới hạn số lượng toasts
-		if len(tm.toasts) > tm.maxToasts {
-			// Xóa toast cũ nhất
-			tm.toasts = tm.toasts[1:]
-		}
-		
-	case toastExpiredMsg:
-		// Xóa toast theo ID
-		for i, toast := range tm.toasts {
-			if toast.ID == msg.id {
-				tm.toasts = append(tm.toasts[:i], tm.toasts[i+1:]...)
-				break
-			}
+// RemoveToast xóa toast theo ID
+func (tm *ToastManager) RemoveToast(id int) {
+	for i, toast := range tm.toasts {
+		if toast.ID == id {
+			tm.toasts = append(tm.toasts[:i], tm.toasts[i+1:]...)
+			break
 		}
 	}
-	
-	return tm, nil
 }
 
 // View renders tất cả active toasts

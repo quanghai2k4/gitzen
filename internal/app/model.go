@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -39,6 +40,7 @@ type model struct {
 	hunkView      *components.HunkView
 	cmdLogPane    *components.CmdLogPane
 	modal         *components.Modal
+	toastManager  *components.ToastManager
 
 	// Track which pane we entered Main from (for split mode)
 	mainViewSource ui.PaneID
@@ -80,6 +82,7 @@ func NewModel(repoRoot string) tea.Model {
 		hunkView:      components.NewHunkView(styles),
 		cmdLogPane:    components.NewCmdLogPane(styles),
 		modal:         components.NewModal(styles),
+		toastManager:  components.NewToastManager(styles),
 	}
 
 	// Set initial repo info
@@ -229,7 +232,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case startupFetchResultMsg:
-		// Log startup fetch result and update status
+		// Log startup fetch result, update status, and show toast
 		var cmd tea.Cmd
 		if msg.Success {
 			if msg.Skipped {
@@ -241,6 +244,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd = tea.Batch(
 					updateFetchStatusCmd(components.FetchSuccess),
 					clearFetchStatusCmd(),
+					addToastCmd("Startup fetch completed", components.ToastSuccess, 3*time.Second),
 				)
 			}
 		} else {
@@ -248,12 +252,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = tea.Batch(
 				updateFetchStatusCmd(components.FetchError),
 				clearFetchStatusCmd(),
+				addToastCmd("Startup fetch failed: "+msg.Message, components.ToastError, 5*time.Second),
 			)
 		}
 		return m, cmd
 
 	case autoFetchResultMsg:
-		// Log auto fetch result and update status
+		// Log auto fetch result, update status, and show toast
 		var cmd tea.Cmd
 		if msg.Success {
 			if !msg.Skipped {
@@ -261,16 +266,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd = tea.Batch(
 					updateFetchStatusCmd(components.FetchSuccess),
 					clearFetchStatusCmd(),
+					addToastCmd("Auto fetch completed", components.ToastSuccess, 3*time.Second),
 				)
 			} else {
 				// Keep current status for skipped operations
 				cmd = updateFetchStatusCmd(components.FetchIdle)
 			}
 		} else {
-			// Don't show failures in UI to avoid noise - they're logged
+			// Show error toast for background fetch failures
 			cmd = tea.Batch(
 				updateFetchStatusCmd(components.FetchError),
 				clearFetchStatusCmd(),
+				addToastCmd("Auto fetch failed", components.ToastError, 5*time.Second),
 			)
 		}
 		return m, cmd
@@ -288,6 +295,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.statusPane.GetFetchStatus() != components.FetchInProgress {
 			m.statusPane.SetFetchStatus(components.FetchIdle)
 		}
+		return m, nil
+
+	case toastAddMsg:
+		// Add new toast notification
+		m.toastManager.AddToastNotification(msg.toast)
+		return m, nil
+
+	case toastExpiredMsg:
+		// Remove expired toast
+		m.toastManager.RemoveToast(msg.id)
 		return m, nil
 
 	case background.FileWatchEventMsg:

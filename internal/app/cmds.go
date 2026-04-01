@@ -67,6 +67,39 @@ func clearFetchStatusCmd() tea.Cmd {
 	})
 }
 
+// addToastCmd tạo command để thêm toast notification với auto-expiration
+func addToastCmd(message string, level components.ToastLevel, duration time.Duration) tea.Cmd {
+	toastID := int(time.Now().UnixNano()) // Unique ID based on timestamp
+	
+	return tea.Batch(
+		func() tea.Msg {
+			return toastAddMsg{
+				toast: components.ToastNotification{
+					ID:        toastID,
+					Message:   message,
+					Level:     level,
+					Duration:  duration,
+					StartTime: time.Now(),
+					Visible:   true,
+				},
+			}
+		},
+		tea.Tick(duration, func(t time.Time) tea.Msg {
+			return toastExpiredMsg{id: toastID}
+		}),
+	)
+}
+
+// toastAddMsg message để thêm toast
+type toastAddMsg struct {
+	toast components.ToastNotification
+}
+
+// toastExpiredMsg message khi toast hết hạn  
+type toastExpiredMsg struct {
+	id int
+}
+
 // fileWatchRefreshCmd triggers a refresh of git status after file changes
 func fileWatchRefreshCmd(gitRunner git.Runner) tea.Cmd {
 	return tea.Batch(
