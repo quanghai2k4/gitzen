@@ -2,6 +2,8 @@
 
 A TUI Git client inspired by [lazygit](https://github.com/jesseduffield/lazygit), written in Go with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
+**NEW**: Now includes automatic background fetch functionality!
+
 ![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Release](https://img.shields.io/github/v/release/quanghai2k4/gitzen?include_prereleases)
@@ -49,7 +51,7 @@ gitzen --uninstall
 
 ### Manual Download
 
-Download the latest release for your platform from [Releases](https://github.com/quanghai2k4/gitzen/releases).
+Download the [Latest Release](https://github.com/quanghai2k4/gitzen/releases/latest) for your platform.
 
 ```bash
 # Linux/macOS
@@ -57,7 +59,7 @@ tar -xzf gitzen_*_linux_amd64.tar.gz
 sudo mv gitzen /usr/local/bin/
 
 # Windows
-# Extract gitzen_*_windows_amd64.zip and add to PATH
+# Extract the .zip archive and add the directory to your PATH
 ```
 
 ### From Source

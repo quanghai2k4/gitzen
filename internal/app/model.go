@@ -1,13 +1,16 @@
 package app
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"gitzen/internal/background"
 	"gitzen/internal/components"
+	"gitzen/internal/config"
 	"gitzen/internal/git"
 	"gitzen/internal/ui"
 )
@@ -17,6 +20,10 @@ type model struct {
 	repoRoot string
 	repoName string
 	git      git.Runner
+
+	// Background operations
+	backgroundManager *background.Manager
+	backgroundCancel  context.CancelFunc
 
 	// Current focus
 	focus ui.PaneID
@@ -59,6 +66,9 @@ func NewModel(repoRoot string) tea.Model {
 		styles:     styles,
 		inHunkView: false,
 
+		// Initialize background operations
+		backgroundManager: background.New(git.New(repoRoot)),
+
 		// Initialize components
 		statusPane:    components.NewStatusPane(styles),
 		filesPane:     components.NewFilesPane(styles),
@@ -75,18 +85,43 @@ func NewModel(repoRoot string) tea.Model {
 	// Set initial repo info
 	m.statusPane.SetData(m.repoName, "")
 
+	// Initialize file watcher với configuration
+	repoConfig, err := config.LoadRepoConfig(repoRoot)
+	if err != nil {
+		m.cmdLogPane.AddEntry("warning: failed to load config, using defaults: " + err.Error())
+		repoConfig = config.NewDefaultConfig()
+	}
+
+	if err := m.backgroundManager.InitFileWatcher(repoRoot, repoConfig.FileWatch.Enabled); err != nil {
+		// Log warning but don't fail - file watching is not critical
+		m.cmdLogPane.AddEntry("warning: failed to initialize file watcher: " + err.Error())
+	}
+
 	return m
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(
+	// Create background context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	m.backgroundCancel = cancel
+
+	commands := []tea.Cmd{
 		loadStatusCmd(m.git),
 		loadCommitsCmd(m.git),
 		loadReflogCmd(m.git),
 		loadBranchCmd(m.git),
 		loadBranchesCmd(m.git),
 		loadStashCmd(m.git),
-	)
+		m.backgroundManager.Start(ctx),
+		m.backgroundManager.StartFileWatcher(ctx), // Start file watching
+	}
+
+	// Add startup fetch if in valid repository
+	if m.repoRoot != "" {
+		commands = append(commands, startupFetchCmd())
+	}
+
+	return tea.Batch(commands...)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -120,6 +155,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stashLoadedMsg:
 		m.stashPane.SetData(msg.Entries)
 		return m, nil
+
+	case backgroundTickMsg:
+		// Background timer tick - execute auto fetch and continue timer loop
+		return m, tea.Batch(
+			m.executeAutoFetchCmd(),
+			backgroundTickCmd(),
+		)
 
 	case cmdLogMsg:
 		m.cmdLogPane.AddEntry(string(msg))
@@ -176,6 +218,42 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			loadBranchCmd(m.git),
 			loadBranchesCmd(m.git),
 			loadStashCmd(m.git),
+		)
+
+	case startupFetchMsg:
+		// Handle startup fetch trigger
+		return m, handleStartupFetch(m)
+
+	case startupFetchResultMsg:
+		// Log startup fetch result
+		if msg.Success {
+			if msg.Skipped {
+				m.cmdLogPane.AddEntry("startup fetch: " + msg.Message)
+			} else {
+				m.cmdLogPane.AddEntry("startup fetch: " + msg.Message)
+				m.statusMsg = "startup fetch completed"
+			}
+		} else {
+			m.cmdLogPane.AddEntry("startup fetch failed: " + msg.Message)
+		}
+		return m, nil
+
+	case autoFetchResultMsg:
+		// Log auto fetch result
+		if msg.Success && !msg.Skipped {
+			m.cmdLogPane.AddEntry("auto fetch: " + msg.Message)
+		}
+		// Don't show failures in UI to avoid noise - they're logged
+		return m, nil
+
+	case background.FileWatchEventMsg:
+		// File system change detected, refresh git status
+		ctx, cancel := context.WithCancel(context.Background())
+		m.backgroundCancel = cancel
+
+		return m, tea.Batch(
+			fileWatchRefreshCmd(m.git),
+			m.backgroundManager.StartFileWatcher(ctx), // Continue watching
 		)
 	}
 
@@ -377,4 +455,9 @@ func (m model) loadHunksForCurrentFile() tea.Cmd {
 		return nil
 	}
 	return loadHunksCmd(m.git, item.Path, staged)
+}
+
+// executeAutoFetchCmd executes background auto fetch using the background manager
+func (m model) executeAutoFetchCmd() tea.Cmd {
+	return m.backgroundManager.ExecuteAutoFetch(m.repoRoot)
 }

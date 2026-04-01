@@ -8,6 +8,7 @@
 # Build output directories
 /build/
 /dist/
+/bin/
 
 # Go build cache
 .go/
@@ -32,3 +33,4 @@ Thumbs.db
 # Temp
 *.tmp
 *.log
+.opencode/

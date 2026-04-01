@@ -57,6 +57,16 @@ func (r Runner) StatusPorcelainZ() ([]byte, error) {
 	return r.runBytes(DefaultCmdTimeout, "status", "--porcelain=v1", "-z")
 }
 
+// IsWorkingDirectoryClean kiểm tra xem working directory có sạch hay không (không có thay đổi chưa commit)
+func (r Runner) IsWorkingDirectoryClean() (bool, error) {
+	output, err := r.runBytes(DefaultCmdTimeout, "status", "--porcelain=v1", "-z")
+	if err != nil {
+		return false, fmt.Errorf("cannot check working directory status: %w", err)
+	}
+	// Empty output means no changes
+	return len(bytes.TrimSpace(output)) == 0, nil
+}
+
 func (r Runner) LogOneline() (string, error) {
 	return r.run(DefaultCmdTimeout, "log", "--oneline", "--decorate", "-n", fmt.Sprintf("%d", limits.MaxCommits))
 }

@@ -3,9 +3,11 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"gitzen/internal/background"
 	"gitzen/internal/git"
 )
 
@@ -20,6 +22,38 @@ type branchLoadedMsg struct{ Branch string }
 type branchesLoadedMsg struct{ Branches []git.Branch }
 
 type stashLoadedMsg struct{ Entries []git.StashEntry }
+
+// backgroundTickMsg thông báo khi background timer được kích hoạt
+type backgroundTickMsg time.Time
+
+// startupFetchMsg triggers startup fetch process
+type startupFetchMsg struct{}
+
+// startupFetchResultMsg reports startup fetch completion/failure
+type startupFetchResultMsg struct {
+	Success bool
+	Skipped bool
+	Message string
+}
+
+// autoFetchResultMsg reports background auto fetch results
+type autoFetchResultMsg struct {
+	Success bool
+	Skipped bool
+	Message string
+}
+
+// fileWatchRefreshCmd triggers a refresh of git status after file changes
+func fileWatchRefreshCmd(gitRunner git.Runner) tea.Cmd {
+	return tea.Batch(
+		loadStatusCmd(gitRunner),
+		loadBranchCmd(gitRunner),     // Refresh current branch info
+		loadBranchesCmd(gitRunner),   // Refresh branch list
+	)
+}
+
+// fileWatchEventMsg wraps background.FileWatchEvent for app-level message passing
+type fileWatchEventMsg background.FileWatchEvent
 
 type diffLoadedMsg struct {
 	Diff     string
@@ -489,4 +523,11 @@ func unstageHunkCmd(r git.Runner, path string, hunkContent string) tea.Cmd {
 		}
 		return gitResultMsg{Cmd: cmd, Result: "unstaged hunk in " + path}
 	}
+}
+
+// backgroundTickCmd tạo tea.Cmd cho background timer với 30 giây interval
+func backgroundTickCmd() tea.Cmd {
+	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg {
+		return backgroundTickMsg(t)
+	})
 }
