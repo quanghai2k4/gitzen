@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"gitzen/internal/background"
 	"gitzen/internal/components"
@@ -378,7 +379,79 @@ func (m model) View() string {
 		out = components.OverlayCentered(out, m.modal.View(), m.layout.Width)
 	}
 
+	// Toast overlay - render toasts over everything except modals
+	toastContent := m.toastManager.View(m.layout.Width, m.layout.Height)
+	if toastContent != "" {
+		out = m.renderWithToasts(out, toastContent)
+	}
+
 	return out
+}
+
+// renderWithToasts overlays toast notifications on base content
+func (m model) renderWithToasts(baseContent, toastContent string) string {
+	if toastContent == "" {
+		return baseContent
+	}
+
+	toastLines := strings.Split(toastContent, "\n")
+	toastHeight := len(toastLines)
+	toastWidth := 0
+	
+	// Tìm width lớn nhất của toasts
+	for _, line := range toastLines {
+		if w := ansi.StringWidth(line); w > toastWidth {
+			toastWidth = w
+		}
+	}
+
+	baseLines := strings.Split(baseContent, "\n")
+
+	// Tính vị trí bottom-right (2 chars từ mép, trên info bar)
+	startX := m.layout.Width - toastWidth - 2
+	startY := len(baseLines) - toastHeight - 2 // -1 cho info bar, -1 cho spacing
+
+	if startX < 0 {
+		startX = 0
+	}
+	if startY < 0 {
+		startY = 0
+	}
+
+	// Overlay toast lên base content
+	for i, toastLine := range toastLines {
+		targetY := startY + i
+		if targetY < len(baseLines) && targetY >= 0 {
+			baseLine := baseLines[targetY]
+			baseWidth := ansi.StringWidth(baseLine)
+			toastLineWidth := ansi.StringWidth(toastLine)
+
+			var newLine string
+
+			// Add left part of base line
+			if startX > 0 {
+				if baseWidth >= startX {
+					newLine = ansi.Truncate(baseLine, startX, "")
+				} else {
+					newLine = baseLine + strings.Repeat(" ", startX-baseWidth)
+				}
+			}
+
+			// Add toast line
+			newLine += toastLine
+
+			// Add right part of base line if it exists
+			endX := startX + toastLineWidth
+			if baseWidth > endX {
+				rightPart := ansi.Cut(baseLine, endX, baseWidth)
+				newLine += rightPart
+			}
+
+			baseLines[targetY] = newLine
+		}
+	}
+
+	return strings.Join(baseLines, "\n")
 }
 
 // resizeComponents cập nhật kích thước cho tất cả components

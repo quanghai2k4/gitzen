@@ -243,3 +243,11 @@ func (l Layout) PaneWidth(pane PaneID) int {
 		return 0
 	}
 }
+
+// ToastPosition tính toán vị trí bottom-right cho toast notifications
+func (l Layout) ToastPosition(toastHeight int) (x, y int) {
+	// Position 2 chars từ right edge, trên info bar
+	x = l.Width - 2
+	y = l.Height - l.InfoBarHeight - toastHeight - 1
+	return x, y
+}

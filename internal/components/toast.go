@@ -101,9 +101,8 @@ func (tm *ToastManager) View(screenWidth, screenHeight int) string {
 		return ""
 	}
 
-	// Tính toán vị trí bottom-right
-	content := strings.Join(renderedToasts, "\n")
-	return tm.positionToasts(content, screenWidth, screenHeight)
+	// Trả về content đã render, positioning sẽ được xử lý ở app layer
+	return strings.Join(renderedToasts, "\n")
 }
 
 // removeExpired xóa các toasts đã hết hạn
@@ -165,60 +164,4 @@ func (tm *ToastManager) renderToast(toast ToastNotification) string {
 	
 	// Sử dụng renderBox pattern giống modal
 	return renderBox("", content, width, borderColor, borderColor)
-}
-
-// positionToasts đặt toasts ở bottom-right
-func (tm *ToastManager) positionToasts(toastContent string, screenWidth, screenHeight int) string {
-	toastLines := strings.Split(toastContent, "\n")
-	toastHeight := len(toastLines)
-	toastWidth := 0
-	
-	// Tìm width lớn nhất
-	for _, line := range toastLines {
-		if w := ansi.StringWidth(line); w > toastWidth {
-			toastWidth = w
-		}
-	}
-	
-	// Tính vị trí bottom-right (2 chars từ mép, trên info bar)
-	startX := screenWidth - toastWidth - 2
-	startY := screenHeight - toastHeight - 1 - 1 // -1 cho info bar, -1 cho spacing
-	
-	if startX < 0 {
-		startX = 0
-	}
-	if startY < 0 {
-		startY = 0
-	}
-	
-	// Tạo empty base để overlay
-	baseLines := make([]string, screenHeight)
-	for i := range baseLines {
-		baseLines[i] = strings.Repeat(" ", screenWidth)
-	}
-	
-	// Overlay toast lên base
-	for i, toastLine := range toastLines {
-		targetY := startY + i
-		if targetY < len(baseLines) && targetY >= 0 {
-			baseLine := baseLines[targetY]
-			
-			// Tính toán vị trí chèn
-			if startX < len(baseLine) {
-				endX := startX + ansi.StringWidth(toastLine)
-				if endX > len(baseLine) {
-					endX = len(baseLine)
-				}
-				
-				// Chèn toast line vào base line
-				newLine := baseLine[:startX] + toastLine
-				if endX < len(baseLine) {
-					newLine += baseLine[endX:]
-				}
-				baseLines[targetY] = newLine
-			}
-		}
-	}
-	
-	return strings.Join(baseLines, "\n")
 }
