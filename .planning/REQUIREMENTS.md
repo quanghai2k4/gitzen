@@ -23,7 +23,7 @@ Requirements for auto fetch milestone. Each maps to roadmap phases.
 - [x] **UI-01**: GitZen displays progress indicators when fetch operations are in progress
 - [x] **UI-02**: GitZen shows success/failure notifications after fetch operations complete
 - [x] **UI-03**: GitZen provides non-intrusive status updates that don't disrupt user workflow
-- [ ] **UI-04**: GitZen notifies users when new commits are available after successful fetch
+- [x] **UI-04**: GitZen notifies users when new commits are available after successful fetch
 
 ## v2 Requirements
 
@@ -72,7 +72,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UI-01 | Phase 3 | Complete |
 | UI-02 | Phase 3 | Complete |
 | UI-03 | Phase 3 | Complete |
-| UI-04 | Phase 3 | Pending |
+| UI-04 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 9 total
