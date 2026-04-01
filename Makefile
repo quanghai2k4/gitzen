@@ -169,8 +169,27 @@ help:
 	@echo "  $(YELLOW)version$(NC)        Show version info"
 	@echo "  $(YELLOW)help$(NC)           Show this help"
 	@echo ""
+	@echo "Release targets:"
+	@echo "  $(YELLOW)release-patch$(NC)   Create patch release (bug fixes)"
+	@echo "  $(YELLOW)release-minor$(NC)   Create minor release (new features)"  
+	@echo "  $(YELLOW)release-major$(NC)   Create major release (breaking changes)"
+	@echo ""
 	@echo "Examples:"
 	@echo "  make build                  # Build for current OS"
 	@echo "  make build-all              # Cross-compile for all platforms"
 	@echo "  make package                # Create release archives"
 	@echo "  make run-repo REPO=~/myrepo # Run with specific repo"
+	@echo "  make release-patch          # Create patch release"
+
+## Release targets
+release-patch: ## Create a patch release (bug fixes)
+	@./scripts/release.sh patch
+
+release-minor: ## Create a minor release (new features)
+	@./scripts/release.sh minor
+
+release-major: ## Create a major release (breaking changes)  
+	@./scripts/release.sh major
+
+release: ## Interactive release (choose version)
+	@./scripts/release.sh
