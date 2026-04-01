@@ -34,9 +34,9 @@ type Icons struct {
 	BehindCommits string // ↓ - down arrow (commits behind)
 
 	// Navigation & UI Icons
-	ExpandedFolder   string // ▼ - down triangle (folder mở)
-	CollapsedFolder  string // ▶ - right triangle (folder đóng)
-	FileIcon         string // ◦ - small circle (file thông thường)
+	ExpandedFolder    string // ▼ - down triangle (folder mở)
+	CollapsedFolder   string // ▶ - right triangle (folder đóng)
+	FileIcon          string // ◦ - small circle (file thông thường)
 	SelectedIndicator string // ▸ - right arrow (item được chọn)
 }
 

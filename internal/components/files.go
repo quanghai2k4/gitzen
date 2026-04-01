@@ -110,7 +110,7 @@ func (p *FilesPane) refreshContent() {
 func (p *FilesPane) renderFileItem(f git.FileItem, staged bool, selected bool) string {
 	// Lấy icon phù hợp từ icon system
 	icon := p.styles.Icons.GetFileStatusIcon(f.Status, staged)
-	
+
 	var statusStyle = p.styles.DimStyle
 
 	if staged {

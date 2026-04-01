@@ -85,7 +85,7 @@ func (p *BranchesPane) refreshContent() {
 
 		// Sử dụng icon system cho branch indicators
 		icon := p.styles.Icons.GetBranchIcon(b.IsCurrent, b.IsRemote)
-		
+
 		branchStyle := p.styles.BranchLocalStyle
 		if b.IsCurrent {
 			branchStyle = p.styles.BranchHeadStyle

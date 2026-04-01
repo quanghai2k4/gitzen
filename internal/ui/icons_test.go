@@ -37,9 +37,9 @@ func TestBranchIcons(t *testing.T) {
 	icons := DefaultIcons
 
 	// Test branch type icons
-	currentIcon := icons.GetBranchIcon(true, false)  // current branch
-	localIcon := icons.GetBranchIcon(false, false)   // local branch
-	remoteIcon := icons.GetBranchIcon(false, true)   // remote branch
+	currentIcon := icons.GetBranchIcon(true, false) // current branch
+	localIcon := icons.GetBranchIcon(false, false)  // local branch
+	remoteIcon := icons.GetBranchIcon(false, true)  // remote branch
 
 	if currentIcon == "*" || localIcon == "*" || remoteIcon == "*" {
 		t.Error("Branch icons should use Unicode symbols, not ASCII asterisk")
