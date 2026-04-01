@@ -9,7 +9,7 @@ Requirements for auto fetch milestone. Each maps to roadmap phases.
 
 ### Background Operations
 
-- [ ] **FETCH-01**: GitZen fetches main branch and current branch from remote on application startup
+- [x] **FETCH-01**: GitZen fetches main branch and current branch from remote on application startup
 - [x] **FETCH-02**: Auto fetch only executes when working directory is clean (no uncommitted changes)
 - [x] **FETCH-03**: Background fetch operations never block the TUI event loop or user interactions  
 - [x] **FETCH-04**: Auto fetch targets specific branches (main + current) instead of all remotes
@@ -64,7 +64,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FETCH-01 | Phase 2 | Pending |
+| FETCH-01 | Phase 2 | Complete |
 | FETCH-02 | Phase 1 | Complete |
 | FETCH-03 | Phase 1 | Complete |
 | FETCH-04 | Phase 2 | Complete |

@@ -40,7 +40,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Git fetch methods and per-repository configuration system
-- [ ] 02-02-PLAN.md — Startup and background fetch integration
+- [x] 02-02-PLAN.md — Startup and background fetch integration
 
 ### Phase 3: UI Integration & Visual Feedback
 **Goal**: Users receive clear, non-intrusive feedback about auto fetch operations and status
