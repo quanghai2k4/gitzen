@@ -106,46 +106,41 @@ func (p *FilesPane) refreshContent() {
 	p.SetContent(strings.Join(lines, "\n"))
 }
 
-// renderFileItem renders một file item
+// renderFileItem renders một file item với beautiful icons
 func (p *FilesPane) renderFileItem(f git.FileItem, staged bool, selected bool) string {
-	var statusChar string
+	// Lấy icon phù hợp từ icon system
+	icon := p.styles.Icons.GetFileStatusIcon(f.Status, staged)
+	
 	var statusStyle = p.styles.DimStyle
 
 	if staged {
 		switch f.Status {
 		case "M":
-			statusChar = "M"
 			statusStyle = p.styles.StagedStyle
 		case "D":
-			statusChar = "D"
 			statusStyle = p.styles.DeletedStyle
 		case "R":
-			statusChar = "R"
 			statusStyle = p.styles.RenamedStyle
 		default:
-			statusChar = "A"
 			statusStyle = p.styles.StagedStyle
 		}
 	} else {
 		switch f.Status {
 		case "?":
-			statusChar = "??"
 			statusStyle = p.styles.UntrackedStyle
 		case "M":
-			statusChar = " M"
 			statusStyle = p.styles.ModifiedStyle
 		case "D":
-			statusChar = " D"
 			statusStyle = p.styles.DeletedStyle
 		default:
-			statusChar = f.Status
+			statusStyle = p.styles.ModifiedStyle
 		}
 	}
 
-	line := statusStyle.Render(statusChar) + " " + f.Path
+	line := statusStyle.Render(icon) + " " + f.Path
 
 	if selected {
-		line = p.styles.SelectedStyle.Render(statusChar + " " + f.Path)
+		line = p.styles.SelectedStyle.Render(icon + " " + f.Path)
 	}
 
 	return line

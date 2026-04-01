@@ -72,7 +72,7 @@ func (p *BranchesPane) RenderBox(focused bool, styles ui.Styles) string {
 	return p.BasePane.RenderBox(p.ID().Title(), p.View(), focused, styles)
 }
 
-// refreshContent cập nhật nội dung
+// refreshContent cập nhật nội dung với beautiful branch icons
 func (p *BranchesPane) refreshContent() {
 	if len(p.branches) == 0 {
 		p.SetContent(p.styles.DimStyle.Render("(no branches)"))
@@ -83,30 +83,33 @@ func (p *BranchesPane) refreshContent() {
 	for i, b := range p.branches {
 		selected := p.IsFocused() && i == p.SelectedIndex()
 
-		prefix := "  "
+		// Sử dụng icon system cho branch indicators
+		icon := p.styles.Icons.GetBranchIcon(b.IsCurrent, b.IsRemote)
+		
 		branchStyle := p.styles.BranchLocalStyle
 		if b.IsCurrent {
-			prefix = "* "
 			branchStyle = p.styles.BranchHeadStyle
 		}
 		if b.IsRemote {
 			branchStyle = p.styles.BranchRemoteStyle
 		}
 
-		line := prefix + b.Name
+		line := icon + " " + b.Name
 
-		// Thêm commit count indicators nếu có
+		// Thêm commit count indicators với beautiful icons
 		if p.commitCounts != nil {
 			if count, exists := p.commitCounts[b.Name]; exists {
 				var indicators []string
 
 				if count.Ahead > 0 {
-					aheadIndicator := p.styles.InfoStyle.Render("+" + fmt.Sprintf("%d", count.Ahead))
+					aheadIcon := p.styles.Icons.GetCommitCountIcon(true)
+					aheadIndicator := p.styles.InfoStyle.Render(aheadIcon + fmt.Sprintf("%d", count.Ahead))
 					indicators = append(indicators, aheadIndicator)
 				}
 
 				if count.Behind > 0 {
-					behindIndicator := p.styles.WarningStyle.Render("-" + fmt.Sprintf("%d", count.Behind))
+					behindIcon := p.styles.Icons.GetCommitCountIcon(false)
+					behindIndicator := p.styles.WarningStyle.Render(behindIcon + fmt.Sprintf("%d", count.Behind))
 					indicators = append(indicators, behindIndicator)
 				}
 

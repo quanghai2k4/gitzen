@@ -101,16 +101,19 @@ func (p *StatusPane) refreshContent() {
 
 	content := repoStyle.Render(p.repoName) + " → " + branchStyle.Render(branch)
 
-	// Add fetch status indicator
+	// Add fetch status indicator with beautiful icons
 	switch p.fetchStatus {
 	case FetchInProgress:
-		fetchIndicator := p.styles.FetchingStyle.Render(" [🔄 Fetching...]")
+		icon := p.styles.Icons.GetFetchStatusIcon("in_progress")
+		fetchIndicator := p.styles.FetchingStyle.Render(" [" + icon + " Fetching...]")
 		content += fetchIndicator
 	case FetchSuccess:
-		fetchIndicator := p.styles.FetchSuccessStyle.Render(" [✅]")
+		icon := p.styles.Icons.GetFetchStatusIcon("success")
+		fetchIndicator := p.styles.FetchSuccessStyle.Render(" [" + icon + "]")
 		content += fetchIndicator
 	case FetchError:
-		fetchIndicator := p.styles.FetchErrorStyle.Render(" [❌]")
+		icon := p.styles.Icons.GetFetchStatusIcon("error")
+		fetchIndicator := p.styles.FetchErrorStyle.Render(" [" + icon + "]")
 		content += fetchIndicator
 	case FetchIdle:
 		if !p.lastFetchTime.IsZero() {

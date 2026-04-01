@@ -134,6 +134,9 @@ type Styles struct {
 	ModalStyle        lipgloss.Style
 	ErrorModalStyle   lipgloss.Style
 	WarningModalStyle lipgloss.Style
+
+	// Icons - tích hợp icon system
+	Icons Icons
 }
 
 // NewStyles tạo Styles từ Theme
@@ -198,6 +201,9 @@ func NewStyles(t Theme) Styles {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(t.Warning).
 			Padding(1, 2),
+
+		// Icons - sử dụng DefaultIcons
+		Icons: DefaultIcons,
 	}
 }
 

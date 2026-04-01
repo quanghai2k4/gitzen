@@ -119,26 +119,26 @@ func (tm *ToastManager) removeExpired() {
 	tm.toasts = filtered
 }
 
-// renderToast render một toast notification
+// renderToast render một toast notification với beautiful icons
 func (tm *ToastManager) renderToast(toast ToastNotification) string {
 	width := 40
 
-	// Chọn icon và border color theo level
+	// Chọn icon và border color theo level sử dụng icon system
 	var icon string
 	var borderColor lipgloss.Color
 
 	switch toast.Level {
 	case ToastInfo:
-		icon = "ℹ"
+		icon = tm.styles.Icons.GetToastIcon("info")
 		borderColor = lipgloss.Color("4") // blue
 	case ToastSuccess:
-		icon = "✅"
+		icon = tm.styles.Icons.GetToastIcon("success")
 		borderColor = lipgloss.Color("2") // green
 	case ToastWarning:
-		icon = "⚠"
+		icon = tm.styles.Icons.GetToastIcon("warning")
 		borderColor = lipgloss.Color("3") // yellow
 	case ToastError:
-		icon = "❌"
+		icon = tm.styles.Icons.GetToastIcon("error")
 		borderColor = lipgloss.Color("1") // red
 	}
 
