@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -111,6 +112,15 @@ type Branch struct {
 	IsCurrent bool
 	IsRemote  bool
 }
+
+// CommitCount đại diện cho số lượng commit ahead/behind của branch
+type CommitCount struct {
+	Ahead  int // commits ahead của remote
+	Behind int // commits behind remote  
+}
+
+// BranchCommitCounts maps branch names to their commit counts
+type BranchCommitCounts map[string]CommitCount
 
 // ListBranches returns all local branches
 func (r Runner) ListBranches() ([]Branch, error) {
@@ -386,6 +396,69 @@ func (r Runner) GetRemote() (string, error) {
 func (r Runner) HasUpstream() bool {
 	_, err := r.run(DefaultCmdTimeout, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	return err == nil
+}
+
+// GetBranchCommitCounts lấy số lượng commits ahead/behind cho các branches được chỉ định
+func (r Runner) GetBranchCommitCounts(branches []string) (BranchCommitCounts, error) {
+	counts := make(BranchCommitCounts)
+	
+	for _, branch := range branches {
+		count, err := r.GetSingleBranchCount(branch)
+		if err != nil {
+			// Log warning nhưng không fail toàn bộ operation
+			continue
+		}
+		counts[branch] = count
+	}
+	
+	return counts, nil
+}
+
+// GetSingleBranchCount lấy commit count cho một branch
+func (r Runner) GetSingleBranchCount(branch string) (CommitCount, error) {
+	// Kiểm tra xem branch có remote tracking không
+	remoteBranch := "origin/" + branch
+	
+	// Sử dụng git rev-list --count --left-right để lấy behind và ahead counts
+	args := []string{"rev-list", "--count", "--left-right", remoteBranch + "..." + branch}
+	output, err := r.run(DefaultCmdTimeout, args...)
+	if err != nil {
+		// Nếu remote branch không tồn tại, trả về 0,0
+		return CommitCount{Ahead: 0, Behind: 0}, nil
+	}
+	
+	behind, ahead, err := ParseCommitCountOutput(output)
+	if err != nil {
+		return CommitCount{Ahead: 0, Behind: 0}, err
+	}
+	
+	return CommitCount{Ahead: ahead, Behind: behind}, nil
+}
+
+// ParseCommitCountOutput parse output của git rev-list --count --left-right
+func ParseCommitCountOutput(output string) (int, int, error) {
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return 0, 0, nil
+	}
+	
+	parts := strings.Fields(output)
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("unexpected rev-list output format: %s", output)
+	}
+	
+	// Format: "behind_count\tahead_count" 
+	behind, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("cannot parse behind count: %w", err)
+	}
+	
+	ahead, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("cannot parse ahead count: %w", err)
+	}
+	
+	return behind, ahead, nil
 }
 
 func (r Runner) run(timeout time.Duration, args ...string) (string, error) {
