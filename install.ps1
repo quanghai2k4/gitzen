@@ -7,7 +7,7 @@
     Auto-detect architecture, download from GitHub Releases, verify checksum, and install GitZen.
 
 .PARAMETER Version
-    Specific version to install (e.g., v0.1.0). If not specified, installs latest.
+    Specific version to install (e.g., v0.5.0). If not specified, installs latest.
 
 .PARAMETER InstallDir
     Installation directory. Defaults to $env:LOCALAPPDATA\gitzen
@@ -17,10 +17,10 @@
 
 .EXAMPLE
     # Install latest version
-    irm https://quanghai2k4.github.io/gitzen/install.ps1 | iex
+    irm https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.ps1 | iex
 
-    # Install specific version
-    & { $v="v0.1.0"; irm https://quanghai2k4.github.io/gitzen/install.ps1 | iex }
+    # Install specific version  
+    & { $v="v0.5.0"; irm https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.ps1 | iex }
 
     # Uninstall
     gitzen --uninstall
@@ -184,11 +184,26 @@ function Install-Gitzen {
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     
     try {
-        # Download archive
+        # Download archive with retry
         Write-Info "Downloading $archiveName..."
         $archivePath = Join-Path $tempDir $archiveName
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
-        Write-Success "Downloaded $archiveName"
+        $maxAttempts = 3
+        $attempt = 1
+        while ($attempt -le $maxAttempts) {
+            try {
+                Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
+                Write-Success "Downloaded $archiveName ($([math]::Round((Get-Item $archivePath).length/1MB, 2)) MB)"
+                break
+            }
+            catch {
+                if ($attempt -eq $maxAttempts) {
+                    throw "Failed to download after $maxAttempts attempts: $_"
+                }
+                Write-Warn "Download attempt $attempt failed, retrying..."
+                $attempt++
+                Start-Sleep -Seconds 2
+            }
+        }
         
         # Download checksums
         Write-Info "Downloading checksums..."

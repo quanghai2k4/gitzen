@@ -4,7 +4,7 @@
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash
-#   curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- v0.1.0
+#   curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- v0.5.0
 #   curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- --uninstall
 
 set -e
@@ -68,18 +68,32 @@ get_latest_version() {
     echo "$version"
 }
 
-# Download file
+# Download file with retry
 download() {
     local url="$1"
     local output="$2"
+    local max_attempts=3
+    local attempt=1
     
-    if command -v curl &> /dev/null; then
-        curl -fsSL "$url" -o "$output"
-    elif command -v wget &> /dev/null; then
-        wget -q "$url" -O "$output"
-    else
-        error "curl or wget is required"
-    fi
+    while [ $attempt -le $max_attempts ]; do
+        if command -v curl &> /dev/null; then
+            if curl -fsSL "$url" -o "$output"; then
+                return 0
+            fi
+        elif command -v wget &> /dev/null; then
+            if wget -q "$url" -O "$output"; then
+                return 0
+            fi
+        else
+            error "curl or wget is required"
+        fi
+        
+        warn "Download attempt $attempt failed, retrying..."
+        attempt=$((attempt + 1))
+        sleep 2
+    done
+    
+    error "Failed to download after $max_attempts attempts"
 }
 
 # Verify checksum
@@ -271,7 +285,7 @@ install() {
     # Download archive
     info "Downloading ${archive_name}..."
     download "$download_url" "${tmp_dir}/${archive_name}" || error "Failed to download ${archive_name}"
-    success "Downloaded ${archive_name}"
+    success "Downloaded ${archive_name} ($(du -h "${tmp_dir}/${archive_name}" | cut -f1))"
     
     # Download checksums
     info "Downloading checksums..."
@@ -334,13 +348,13 @@ main() {
                 echo "GitZen Installer"
                 echo ""
                 echo "Usage:"
-                echo "  install.sh [version]     Install specific version (e.g., v0.1.0)"
+                echo "  install.sh [version]     Install specific version (e.g., v0.5.0)"
                 echo "  install.sh --uninstall   Uninstall gitzen"
                 echo "  install.sh --help        Show this help"
                 echo ""
                 echo "Examples:"
                 echo "  curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash"
-                echo "  curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- v0.1.0"
+                echo "  curl -sSL https://raw.githubusercontent.com/quanghai2k4/gitzen/master/install.sh | bash -s -- v0.5.0"
                 exit 0
                 ;;
             v*)
