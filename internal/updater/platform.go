@@ -31,9 +31,9 @@ func (p *PlatformDetector) Detect() Platform {
 		OS:   runtime.GOOS,
 		Arch: runtime.GOARCH,
 	}
-	
+
 	p.logger.Debug("Detected platform: %s", platform.String())
-	
+
 	return platform
 }
 
@@ -45,18 +45,18 @@ func (p Platform) String() string {
 // MatchesAsset checks if an asset filename matches the current platform
 func (p *PlatformDetector) MatchesAsset(assetName string, platform Platform) bool {
 	assetLower := strings.ToLower(assetName)
-	
+
 	// Skip checksums files
-	if strings.Contains(assetLower, "checksum") || 
-	   strings.Contains(assetLower, "sha256") ||
-	   strings.HasSuffix(assetLower, ".txt") {
+	if strings.Contains(assetLower, "checksum") ||
+		strings.Contains(assetLower, "sha256") ||
+		strings.HasSuffix(assetLower, ".txt") {
 		return false
 	}
-	
+
 	// Map Go arch names to common binary naming conventions
 	archPatterns := p.getArchPatterns(platform.Arch)
 	osPatterns := p.getOSPatterns(platform.OS)
-	
+
 	// Check if asset contains OS pattern
 	osMatch := false
 	for _, osPattern := range osPatterns {
@@ -65,11 +65,11 @@ func (p *PlatformDetector) MatchesAsset(assetName string, platform Platform) boo
 			break
 		}
 	}
-	
+
 	if !osMatch {
 		return false
 	}
-	
+
 	// Check if asset contains arch pattern
 	archMatch := false
 	for _, archPattern := range archPatterns {
@@ -78,11 +78,11 @@ func (p *PlatformDetector) MatchesAsset(assetName string, platform Platform) boo
 			break
 		}
 	}
-	
+
 	if !archMatch {
 		return false
 	}
-	
+
 	// Additional validation - ensure it's an executable
 	return p.isExecutableAsset(assetName, platform.OS)
 }
@@ -120,7 +120,7 @@ func (p *PlatformDetector) getArchPatterns(arch string) []string {
 // isExecutableAsset checks if an asset is likely an executable for the given OS
 func (p *PlatformDetector) isExecutableAsset(assetName, os string) bool {
 	assetLower := strings.ToLower(assetName)
-	
+
 	switch os {
 	case "windows":
 		// Windows executables should have .exe extension
@@ -135,13 +135,13 @@ func (p *PlatformDetector) isExecutableAsset(assetName, os string) bool {
 			".txt", ".md", ".json", ".xml", ".yaml", ".yml",
 			".sig", ".asc", // signature files
 		}
-		
+
 		for _, ext := range excludeExtensions {
 			if strings.HasSuffix(assetLower, ext) {
 				return false
 			}
 		}
-		
+
 		return true
 	default:
 		return true
@@ -151,10 +151,10 @@ func (p *PlatformDetector) isExecutableAsset(assetName, os string) bool {
 // GetExpectedAssetName returns the expected asset name pattern for a platform
 func (p *PlatformDetector) GetExpectedAssetName(binaryName string, platform Platform) []string {
 	var patterns []string
-	
+
 	osPatterns := p.getOSPatterns(platform.OS)
 	archPatterns := p.getArchPatterns(platform.Arch)
-	
+
 	// Generate common naming patterns
 	for _, osPattern := range osPatterns {
 		for _, archPattern := range archPatterns {
@@ -165,7 +165,7 @@ func (p *PlatformDetector) GetExpectedAssetName(binaryName string, platform Plat
 				binaryName + "_" + platform.OS + "_" + platform.Arch,
 				binaryName + "-" + platform.OS + "-" + platform.Arch,
 			}...)
-			
+
 			// With extension for Windows
 			if platform.OS == "windows" {
 				patterns = append(patterns, []string{
@@ -177,7 +177,7 @@ func (p *PlatformDetector) GetExpectedAssetName(binaryName string, platform Plat
 			}
 		}
 	}
-	
+
 	return patterns
 }
 

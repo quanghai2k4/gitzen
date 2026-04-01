@@ -243,7 +243,7 @@ func runUpdate(dryRun bool) {
 	result, err := u.Update(options)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Update failed: %v\n", err)
-		
+
 		// Show backup info if available
 		if result.BackupPath != "" {
 			fmt.Fprintf(os.Stderr, "Your previous version was backed up to: %s\n", result.BackupPath)
