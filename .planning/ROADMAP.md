@@ -22,7 +22,10 @@
   2. Auto fetch only executes when working directory has no uncommitted changes
   3. Background timers are properly cancelled when GitZen exits without resource leaks
   4. Git operations are serialized to prevent race conditions between user actions and auto fetch
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Async background operation infrastructure with safety checks
 
 ### Phase 2: Auto Fetch Implementation  
 **Goal**: GitZen automatically fetches relevant branches on startup and maintains repository currency
@@ -52,7 +55,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Background Operations Foundation | 0/TBD | Not started | - |
+| 1. Background Operations Foundation | 0/1 | Not started | - |
 | 2. Auto Fetch Implementation | 0/TBD | Not started | - |
 | 3. UI Integration & Visual Feedback | 0/TBD | Not started | - |
 
