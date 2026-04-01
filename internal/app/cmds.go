@@ -47,8 +47,8 @@ type autoFetchResultMsg struct {
 func fileWatchRefreshCmd(gitRunner git.Runner) tea.Cmd {
 	return tea.Batch(
 		loadStatusCmd(gitRunner),
-		loadBranchCmd(gitRunner),     // Refresh current branch info
-		loadBranchesCmd(gitRunner),   // Refresh branch list
+		loadBranchCmd(gitRunner),   // Refresh current branch info
+		loadBranchesCmd(gitRunner), // Refresh branch list
 	)
 }
 

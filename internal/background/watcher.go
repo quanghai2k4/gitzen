@@ -60,7 +60,7 @@ func NewFileWatcher(repoRoot string) (*FileWatcher, error) {
 		done:          make(chan struct{}),
 		pendingEvents: make(map[string]FileEventType),
 		debounceDelay: 200 * time.Millisecond, // Reduced from 300ms for faster response
-		enabled:       true, // Default enabled
+		enabled:       true,                   // Default enabled
 	}, nil
 }
 
@@ -98,7 +98,7 @@ func (fw *FileWatcher) addWatchPaths() error {
 		filepath.Join(fw.repoRoot, ".git", "refs"),
 		filepath.Join(fw.repoRoot, ".git", "refs", "heads"),
 		filepath.Join(fw.repoRoot, ".git", "refs", "remotes"),
-		filepath.Join(fw.repoRoot, ".git", "ORIG_HEAD"), // Tracks checkout operations
+		filepath.Join(fw.repoRoot, ".git", "ORIG_HEAD"),  // Tracks checkout operations
 		filepath.Join(fw.repoRoot, ".git", "FETCH_HEAD"), // Tracks fetch operations
 	}
 
@@ -208,7 +208,7 @@ func (fw *FileWatcher) handleRawEvent(event fsnotify.Event) {
 
 	// Add to pending events for debouncing
 	fw.pendingEvents[event.Name] = eventType
-	
+
 	// Enhanced debug logging for external git operations
 	if strings.Contains(event.Name, "/.git/HEAD") {
 		logger.Get().Debug("file watcher: HEAD file changed (likely branch switch) - %v: %s", eventType, event.Name)
