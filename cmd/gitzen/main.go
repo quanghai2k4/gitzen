@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gitzen/internal/app"
+	"gitzen/internal/updater"
 )
 
 var (
@@ -20,7 +21,7 @@ func main() {
 	args := os.Args[1:]
 
 	var repoPath string
-	var showVersion, showHelp, uninstallFlag bool
+	var showVersion, showHelp, uninstallFlag, updateFlag, updateDryRun bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -30,6 +31,11 @@ func main() {
 			showHelp = true
 		case arg == "-v" || arg == "--version":
 			showVersion = true
+		case arg == "-u" || arg == "--update":
+			updateFlag = true
+		case arg == "--update-dry-run":
+			updateFlag = true
+			updateDryRun = true
 		case arg == "--uninstall":
 			uninstallFlag = true
 		case arg == "-r" || arg == "--repo":
@@ -76,6 +82,11 @@ func main() {
 		return
 	}
 
+	if updateFlag {
+		runUpdate(updateDryRun)
+		return
+	}
+
 	exitCode := app.Run(app.Options{
 		RepoPath: repoPath,
 		Version:  version,
@@ -107,6 +118,8 @@ Usage:
 Flags:
   -h, --help          Show this help message and exit
   -v, --version       Show version information and exit
+  -u, --update        Check for and install updates from GitHub
+      --update-dry-run Check for updates without installing (dry run)
   -r, --repo <path>   Specify git repository path
       --uninstall     Uninstall GitZen from system
 
@@ -120,6 +133,9 @@ Examples:
   gitzen --repo=/tmp/project  # Run with --repo= format
   gitzen -v                   # Show version (short flag)
   gitzen --version            # Show version (long flag)
+  gitzen -u                   # Check for updates (short flag)
+  gitzen --update             # Check for updates (long flag)
+  gitzen --update-dry-run     # Check what would be updated (dry run)
   gitzen -h                   # Show this help (short flag)
   gitzen --help               # Show this help (long flag)
   gitzen --uninstall          # Uninstall GitZen
@@ -169,4 +185,74 @@ func uninstall() {
 
 	fmt.Println("✅ GitZen has been uninstalled successfully!")
 	fmt.Println("Thank you for using GitZen!")
+}
+
+// runUpdate handles the update process
+func runUpdate(dryRun bool) {
+	fmt.Println("GitZen Updater")
+	fmt.Println("==============")
+
+	u := updater.NewUpdater(version)
+
+	// Check for updates first
+	fmt.Println("Checking for updates...")
+	latest, err := u.CheckForUpdate()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error checking for updates: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Current version: v%s\n", version)
+
+	if latest == nil {
+		fmt.Printf("✓ Already up to date! (v%s)\n", version)
+		return
+	}
+
+	fmt.Printf("Latest version:  v%s\n", latest.TagName)
+	fmt.Printf("Release date:    %s\n", latest.PublishedAt)
+
+	// Show release notes if available
+	if latest.Body != "" {
+		fmt.Printf("\nRelease Notes:\n%s\n\n", strings.TrimSpace(latest.Body))
+	}
+
+	if dryRun {
+		fmt.Printf("🔍 DRY RUN: Would update from v%s to v%s\n", version, latest.TagName)
+		fmt.Println("Use --update to perform the actual update.")
+		return
+	}
+
+	// Confirm update
+	fmt.Print("Do you want to update? (y/N): ")
+	var response string
+	fmt.Scanln(&response)
+	if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+		fmt.Println("Update cancelled.")
+		return
+	}
+
+	// Perform update
+	options := updater.UpdateOptions{
+		DryRun:  false,
+		Force:   false,
+		Backup:  true,
+		Verbose: true,
+	}
+
+	result, err := u.Update(options)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Update failed: %v\n", err)
+		
+		// Show backup info if available
+		if result.BackupPath != "" {
+			fmt.Fprintf(os.Stderr, "Your previous version was backed up to: %s\n", result.BackupPath)
+		}
+		os.Exit(1)
+	}
+
+	fmt.Println(result.Message)
+	if result.BackupPath != "" {
+		fmt.Printf("Previous version backed up to: %s\n", result.BackupPath)
+	}
 }
