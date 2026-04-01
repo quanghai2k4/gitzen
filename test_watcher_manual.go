@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"gitzen/internal/background" 
+	"gitzen/internal/background"
 	"gitzen/internal/git"
 )
 

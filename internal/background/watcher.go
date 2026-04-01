@@ -204,7 +204,7 @@ func (fw *FileWatcher) handleRawEvent(event fsnotify.Event) {
 
 	// Add to pending events for debouncing
 	fw.pendingEvents[event.Name] = eventType
-	
+
 	// Debug logging to help track what events we're seeing
 	logger.Get().Debug("file watcher: detected %v event for %s", eventType, event.Name)
 
@@ -234,7 +234,7 @@ func (fw *FileWatcher) flushPendingEvents() {
 		for path, eventType := range events {
 			logger.Get().Debug("  - %v: %s", eventType, path)
 		}
-		
+
 		select {
 		case fw.eventChan <- FileWatchEvent{
 			Type: FileModified, // Simplified: just trigger refresh
