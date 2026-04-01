@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -20,6 +21,9 @@ type branchLoadedMsg struct{ Branch string }
 type branchesLoadedMsg struct{ Branches []git.Branch }
 
 type stashLoadedMsg struct{ Entries []git.StashEntry }
+
+// backgroundTickMsg thông báo khi background timer được kích hoạt
+type backgroundTickMsg time.Time
 
 type diffLoadedMsg struct {
 	Diff     string
@@ -489,4 +493,11 @@ func unstageHunkCmd(r git.Runner, path string, hunkContent string) tea.Cmd {
 		}
 		return gitResultMsg{Cmd: cmd, Result: "unstaged hunk in " + path}
 	}
+}
+
+// backgroundTickCmd tạo tea.Cmd cho background timer với 30 giây interval
+func backgroundTickCmd() tea.Cmd {
+	return tea.Tick(30*time.Second, func(t time.Time) tea.Msg {
+		return backgroundTickMsg(t)
+	})
 }

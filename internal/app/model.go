@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"gitzen/internal/background"
 	"gitzen/internal/components"
 	"gitzen/internal/git"
 	"gitzen/internal/ui"
@@ -17,6 +19,10 @@ type model struct {
 	repoRoot string
 	repoName string
 	git      git.Runner
+
+	// Background operations
+	backgroundManager *background.Manager
+	backgroundCancel  context.CancelFunc
 
 	// Current focus
 	focus ui.PaneID
@@ -59,6 +65,9 @@ func NewModel(repoRoot string) tea.Model {
 		styles:     styles,
 		inHunkView: false,
 
+		// Initialize background operations
+		backgroundManager: background.New(git.New(repoRoot)),
+
 		// Initialize components
 		statusPane:    components.NewStatusPane(styles),
 		filesPane:     components.NewFilesPane(styles),
@@ -79,6 +88,10 @@ func NewModel(repoRoot string) tea.Model {
 }
 
 func (m model) Init() tea.Cmd {
+	// Create background context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	m.backgroundCancel = cancel
+
 	return tea.Batch(
 		loadStatusCmd(m.git),
 		loadCommitsCmd(m.git),
@@ -86,6 +99,7 @@ func (m model) Init() tea.Cmd {
 		loadBranchCmd(m.git),
 		loadBranchesCmd(m.git),
 		loadStashCmd(m.git),
+		m.backgroundManager.Start(ctx),
 	)
 }
 
@@ -120,6 +134,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stashLoadedMsg:
 		m.stashPane.SetData(msg.Entries)
 		return m, nil
+
+	case backgroundTickMsg:
+		// Background timer tick - continue the timer loop
+		return m, backgroundTickCmd()
 
 	case cmdLogMsg:
 		m.cmdLogPane.AddEntry(string(msg))

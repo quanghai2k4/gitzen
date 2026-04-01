@@ -15,6 +15,10 @@ func (m model) handleKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global keys
 	switch key {
 	case "q", "ctrl+c":
+		// Cancel background operations before quitting
+		if m.backgroundCancel != nil {
+			m.backgroundCancel()
+		}
 		return m, tea.Quit
 	case "tab":
 		// In split mode (Main from Files), tab toggles between panes
