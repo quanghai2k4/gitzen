@@ -92,7 +92,7 @@ func (m model) Init() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.backgroundCancel = cancel
 
-	return tea.Batch(
+	commands := []tea.Cmd{
 		loadStatusCmd(m.git),
 		loadCommitsCmd(m.git),
 		loadReflogCmd(m.git),
@@ -100,7 +100,14 @@ func (m model) Init() tea.Cmd {
 		loadBranchesCmd(m.git),
 		loadStashCmd(m.git),
 		m.backgroundManager.Start(ctx),
-	)
+	}
+
+	// Add startup fetch if in valid repository
+	if m.repoRoot != "" {
+		commands = append(commands, startupFetchCmd())
+	}
+
+	return tea.Batch(commands...)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
