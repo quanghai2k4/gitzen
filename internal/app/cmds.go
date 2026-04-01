@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"gitzen/internal/background"
 	"gitzen/internal/git"
 )
 
@@ -41,6 +42,14 @@ type autoFetchResultMsg struct {
 	Skipped bool
 	Message string
 }
+
+// fileWatchRefreshCmd triggers a refresh of git status after file changes
+func fileWatchRefreshCmd(gitRunner git.Runner) tea.Cmd {
+	return loadStatusCmd(gitRunner)
+}
+
+// fileWatchEventMsg wraps background.FileWatchEvent for app-level message passing
+type fileWatchEventMsg background.FileWatchEvent
 
 type diffLoadedMsg struct {
 	Diff     string

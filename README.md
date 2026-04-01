@@ -2,6 +2,8 @@
 
 A TUI Git client inspired by [lazygit](https://github.com/jesseduffield/lazygit), written in Go with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
+**NEW**: Now includes automatic background fetch functionality!
+
 ![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Release](https://img.shields.io/github/v/release/quanghai2k4/gitzen?include_prereleases)

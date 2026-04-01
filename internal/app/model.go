@@ -10,6 +10,7 @@ import (
 
 	"gitzen/internal/background"
 	"gitzen/internal/components"
+	"gitzen/internal/config"
 	"gitzen/internal/git"
 	"gitzen/internal/ui"
 )
@@ -84,6 +85,18 @@ func NewModel(repoRoot string) tea.Model {
 	// Set initial repo info
 	m.statusPane.SetData(m.repoName, "")
 
+	// Initialize file watcher với configuration
+	repoConfig, err := config.LoadRepoConfig(repoRoot)
+	if err != nil {
+		m.cmdLogPane.AddEntry("warning: failed to load config, using defaults: " + err.Error())
+		repoConfig = config.NewDefaultConfig()
+	}
+	
+	if err := m.backgroundManager.InitFileWatcher(repoRoot, repoConfig.FileWatch.Enabled); err != nil {
+		// Log warning but don't fail - file watching is not critical
+		m.cmdLogPane.AddEntry("warning: failed to initialize file watcher: " + err.Error())
+	}
+
 	return m
 }
 
@@ -100,6 +113,7 @@ func (m model) Init() tea.Cmd {
 		loadBranchesCmd(m.git),
 		loadStashCmd(m.git),
 		m.backgroundManager.Start(ctx),
+		m.backgroundManager.StartFileWatcher(ctx), // Start file watching
 	}
 
 	// Add startup fetch if in valid repository
@@ -231,6 +245,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Don't show failures in UI to avoid noise - they're logged
 		return m, nil
+
+	case background.FileWatchEventMsg:
+		// File system change detected, refresh git status
+		ctx, cancel := context.WithCancel(context.Background())
+		m.backgroundCancel = cancel
+		
+		return m, tea.Batch(
+			fileWatchRefreshCmd(m.git),
+			m.backgroundManager.StartFileWatcher(ctx), // Continue watching
+		)
 	}
 
 	// Handle modal input first

@@ -15,9 +15,10 @@ type backgroundTickMsg time.Time
 
 // Manager quản lý các hoạt động background với timer và serialization
 type Manager struct {
-	mu        sync.Mutex
-	running   bool
-	gitRunner git.Runner
+	mu          sync.Mutex
+	running     bool
+	gitRunner   git.Runner
+	fileWatcher *FileWatcher // New: File system watcher
 }
 
 // New tạo một Manager mới với git.Runner được cung cấp
@@ -66,4 +67,39 @@ func (m *Manager) backgroundTickCmd(ctx context.Context) tea.Cmd {
 			return backgroundTickMsg(t)
 		}
 	})
+}
+
+// InitFileWatcher khởi tạo file watcher cho repository
+func (m *Manager) InitFileWatcher(repoRoot string, enabled bool) error {
+	watcher, err := NewFileWatcher(repoRoot)
+	if err != nil {
+		return err
+	}
+	
+	watcher.SetEnabled(enabled)
+	m.fileWatcher = watcher
+	return nil
+}
+
+// StartFileWatcher bắt đầu file system monitoring
+func (m *Manager) StartFileWatcher(ctx context.Context) tea.Cmd {
+	if m.fileWatcher == nil {
+		return nil
+	}
+	return m.fileWatcher.Start(ctx)
+}
+
+// SetFileWatchEnabled bật/tắt file watching
+func (m *Manager) SetFileWatchEnabled(enabled bool) {
+	if m.fileWatcher != nil {
+		m.fileWatcher.SetEnabled(enabled)
+	}
+}
+
+// Close dọn dẹp tài nguyên của manager
+func (m *Manager) Close() error {
+	if m.fileWatcher != nil {
+		return m.fileWatcher.Close()
+	}
+	return nil
 }

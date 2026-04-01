@@ -69,5 +69,10 @@ func NewDefaultConfig() *RepoConfig {
 			TargetBranches:  []string{"auto"}, // "auto" nghĩa là main + current branch
 			IntervalMinutes: 30,
 		},
+		FileWatch: FileWatchConfig{
+			Enabled:     true,
+			DebounceMs:  300,
+			IgnoredDirs: []string{"node_modules", "vendor", ".next", "dist", "build", ".cache", ".tmp", "__pycache__", ".opencode"},
+		},
 	}
 }
