@@ -52,7 +52,12 @@ Plans:
   3. Users are notified when new commits become available after successful fetch
   4. All fetch status updates are non-intrusive and don't interrupt active user operations
   5. Fetch status and last update time are visible somewhere in the interface
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Status bar fetch indicators and progress feedback
+- [ ] 03-02-PLAN.md — Toast notification system for fetch events
+- [ ] 03-03-PLAN.md — New commit indicators and branch status updates
 **UI hint**: yes
 
 ## Progress
