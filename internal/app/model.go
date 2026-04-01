@@ -136,8 +136,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case backgroundTickMsg:
-		// Background timer tick - continue the timer loop
-		return m, backgroundTickCmd()
+		// Background timer tick - execute auto fetch and continue timer loop
+		return m, tea.Batch(
+			m.executeAutoFetchCmd(),
+			backgroundTickCmd(),
+		)
 
 	case cmdLogMsg:
 		m.cmdLogPane.AddEntry(string(msg))
@@ -195,6 +198,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			loadBranchesCmd(m.git),
 			loadStashCmd(m.git),
 		)
+
+	case startupFetchMsg:
+		// Handle startup fetch trigger
+		return m, handleStartupFetch(m)
+
+	case startupFetchResultMsg:
+		// Log startup fetch result
+		if msg.Success {
+			if msg.Skipped {
+				m.cmdLogPane.AddEntry("startup fetch: " + msg.Message)
+			} else {
+				m.cmdLogPane.AddEntry("startup fetch: " + msg.Message)
+				m.statusMsg = "startup fetch completed"
+			}
+		} else {
+			m.cmdLogPane.AddEntry("startup fetch failed: " + msg.Message)
+		}
+		return m, nil
+
+	case autoFetchResultMsg:
+		// Log auto fetch result
+		if msg.Success && !msg.Skipped {
+			m.cmdLogPane.AddEntry("auto fetch: " + msg.Message)
+		}
+		// Don't show failures in UI to avoid noise - they're logged
+		return m, nil
 	}
 
 	// Handle modal input first
@@ -395,4 +424,9 @@ func (m model) loadHunksForCurrentFile() tea.Cmd {
 		return nil
 	}
 	return loadHunksCmd(m.git, item.Path, staged)
+}
+
+// executeAutoFetchCmd executes background auto fetch using the background manager
+func (m model) executeAutoFetchCmd() tea.Cmd {
+	return m.backgroundManager.ExecuteAutoFetch(m.repoRoot)
 }
