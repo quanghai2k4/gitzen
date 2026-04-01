@@ -8,6 +8,7 @@
 # Build output directories
 /build/
 /dist/
+/bin/
 
 # Go build cache
 .go/
