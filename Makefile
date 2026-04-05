@@ -34,8 +34,9 @@ all: build
 ## Build binary for current platform
 build:
 	@printf "$(GREEN)%s$(NC)\n" "Building $(BINARY_NAME) $(VERSION)..."
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BINARY_NAME) ./cmd/gitzen
-	@printf "$(GREEN)%s$(NC)\n" "Build complete: ./$(BINARY_NAME)"
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/gitzen
+	@printf "$(GREEN)%s$(NC)\n" "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 ## Build binaries for all platforms (cross-compilation)
 build-all: clean
@@ -74,7 +75,6 @@ package: build-all
 ## Clean build artifacts
 clean:
 	@printf "$(YELLOW)%s$(NC)\n" "Cleaning build artifacts..."
-	@rm -f $(BINARY_NAME)
 	@rm -rf $(BUILD_DIR) $(DIST_DIR)
 	@$(GO) clean
 	@printf "$(GREEN)%s$(NC)\n" "Clean complete"
@@ -82,7 +82,7 @@ clean:
 ## Install binary to $GOPATH/bin
 install: build
 	@printf "$(GREEN)%s$(NC)\n" "Installing $(BINARY_NAME) to $(GOPATH)/bin/..."
-	@cp $(BINARY_NAME) $(GOPATH)/bin/$(BINARY_NAME)
+	@cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/$(BINARY_NAME)
 	@printf "$(GREEN)%s$(NC)\n" "Installed: $(GOPATH)/bin/$(BINARY_NAME)"
 
 ## Uninstall binary from $GOPATH/bin
@@ -93,11 +93,11 @@ uninstall:
 
 ## Build and run
 run: build
-	@./$(BINARY_NAME)
+	@$(BUILD_DIR)/$(BINARY_NAME)
 
 ## Run with specific repo
 run-repo: build
-	@./$(BINARY_NAME) --repo $(REPO)
+	@$(BUILD_DIR)/$(BINARY_NAME) --repo $(REPO)
 
 ## Run all tests
 test:
