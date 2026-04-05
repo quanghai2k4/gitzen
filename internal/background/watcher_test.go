@@ -62,6 +62,11 @@ func TestFileWatcherGitOperations(t *testing.T) {
 }
 
 func TestFileWatcherPathDetection(t *testing.T) {
+	// Skip this test on Windows due to fsnotify timeout issues with file watchers
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping file watcher test on Windows due to fsnotify platform limitations")
+	}
+
 	// Create temporary directory
 	tmpDir, err := os.MkdirTemp("", "gitzen-path-test")
 	if err != nil {
