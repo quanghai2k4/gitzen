@@ -34,3 +34,7 @@ Thumbs.db
 *.tmp
 *.log
 .opencode/
+
+# Documentation (managed outside repo)
+CLAUDE.md
+ICONS.md
